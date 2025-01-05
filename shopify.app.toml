@@ -1,0 +1,32 @@
+# Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
+
+client_id = "de4349f3cb6d7c794a2536266a976f22"
+application_url = "https://podcasts-dig-fu-entertainment.trycloudflare.com"
+embedded = true
+name = "test-theme"
+handle = "test-theme-28"
+
+[webhooks]
+api_version = "2024-10"
+
+  [[webhooks.subscriptions]]
+  topics = [ "app/uninstalled" ]
+  uri = "/webhooks/app/uninstalled"
+
+[access_scopes]
+# Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
+scopes = "write_products"
+
+[auth]
+redirect_urls = [
+  "https://podcasts-dig-fu-entertainment.trycloudflare.com/auth/callback",
+  "https://podcasts-dig-fu-entertainment.trycloudflare.com/auth/shopify/callback",
+  "https://podcasts-dig-fu-entertainment.trycloudflare.com/api/auth/callback"
+]
+
+[pos]
+embedded = false
+
+[build]
+dev_store_url = "test-qr-app.myshopify.com"
+automatically_update_urls_on_dev = true

@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+
+<body>
+    <div class="container">
+        <div class="tab-select-container">
+            <div class="tab-select-item">
+                <div class="tab-select-item-name">
+                    <div class="tab-select-item-icon">
+                        2
+                    </div>
+                    name
+                </div>
+            </div>
+            <div class="tab-select-item is-active">
+                <div class="tab-select-item-name">
+                    <div class="tab-select-item-icon">
+                        2
+                    </div>
+                    name
+                </div>
+            </div>
+            <div class="tab-select-item">
+                <div class="tab-select-item-name">
+                    <div class="tab-select-item-icon">
+                        2
+                    </div>
+                    name
+                </div>
+            </div>
+        </div>
+    </div>
+    <style>
+        .container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            width: 400px;
+        }
+
+        .tab-select-container {
+            display: flex;
+            flex: 1 1 0%;
+            border-radius: 8px;
+            background: var(--p-color-bg, #f1f1f1);
+            padding: 3px;
+            justify-content: space-between;
+        }
+
+        .tab-select-item {
+            padding: 4px 12px !important;
+        }
+
+        .tab-select-item-name {
+            display: flex;
+        }
+
+        .tab-select-item-icon {
+            width: 20px;
+            height: 20px;
+            background: var(--p-color-surface-brand, #E3E3E3);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 4px;
+        }
+
+        .is-active {
+            border-radius: 6px;
+            background: var(--p-color-bg-surface);
+            box-shadow: rgba(0, 0, 0, 0.1) 0px 2px 3px 0px;
+            color: var(--p-color-text);
+        }
+
+        .tab-select-container .tab-select-item {
+            display: flex;
+            flex: 1 1 0%;
+            justify-content: center;
+            align-items: center;
+            padding: 4px 16px;
+            cursor: pointer;
+            white-space: nowrap;
+            font-size: 12px;
+            transition: 0.25s;
+            color: var(--p-color-text-secondary);
+            gap: 4px;
+        }
+    </style>
+</body>
+
+</html>

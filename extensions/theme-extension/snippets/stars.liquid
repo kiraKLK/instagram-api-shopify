@@ -1,5 +1,6 @@
 {% assign access_token = shop.metafields.instagram.access_token.value %}
 {% assign setting = shop.metafields.instagram.setting.value %}
+{% assign current_setting = shop.metafields.instagram.current_setting.value %}
 {% assign is_design_mode = request.design_mode %}
 
 {% if is_design_mode %}
@@ -9,6 +10,8 @@
         <img
           src="https://cdn.shopify.com/extensions/595168bb-2109-4602-ab68-4552b64e4fec/socialwidget-instafeed-58/assets/0ecdf3046ddd550f56445a57376b627a.svg"
           class="sw-left-logo"
+          height="1"
+          width="1"
         >
         <div class="sw-left-label">Choose the widget to show</div>
       </div>
@@ -22,6 +25,8 @@
         <img
           src="https://cdn.shopify.com/extensions/595168bb-2109-4602-ab68-4552b64e4fec/socialwidget-instafeed-58/assets/52e1a7d874a24a770e1273ad9f27dead.svg"
           alt=""
+          height="1"
+          width="1"
         >
       </div>
     </div>
@@ -31,89 +36,687 @@
         <img
           src="https://cdn.shopify.com/extensions/595168bb-2109-4602-ab68-4552b64e4fec/socialwidget-instafeed-58/assets/0ecdf3046ddd550f56445a57376b627a.svg"
           class="sw-left-logo"
+          height="1"
+          width="1"
         >
         <div class="sw-left-label">You don’t have any widgets to be shown</div>
       </div>
       <a class="btn-create-widget" href="">Create your widget first</a>
     </div>
   {% endif %}
+{% else %}
+  <div style="display:none" class="sw-editor-container" id="widget-editor">
+    <div class="sw-left">
+      <img
+        src="https://cdn.shopify.com/extensions/595168bb-2109-4602-ab68-4552b64e4fec/socialwidget-instafeed-58/assets/0ecdf3046ddd550f56445a57376b627a.svg"
+        class="sw-left-logo"
+        height="1"
+        width="1"
+      >
+      <div class="sw-left-label">Choose the widget to show</div>
+    </div>
+    <div class="custom-select">
+      <select name="" id="widget-selector">
+        <option selected disabled value="">Choose the widget to show</option>
+        {% for set in setting %}
+          <option value="{{ forloop.index0 }}">{{ set.widgetName }}</option>
+        {% endfor %}
+      </select>
+      <img
+        src="https://cdn.shopify.com/extensions/595168bb-2109-4602-ab68-4552b64e4fec/socialwidget-instafeed-58/assets/52e1a7d874a24a770e1273ad9f27dead.svg"
+        alt=""
+        height="1"
+        width="1"
+      >
+    </div>
+  </div>
 {% endif %}
 
-{% comment %} logic js chọn setting widget {% endcomment %}
 <script>
+  //BEGIN logic case 4 Slider
+  let slideIndex = 1;
+ function plusSlides(n) {
+   showSlides(slideIndex += n);
+ }
+
+ function currentSlide(n) {
+   showSlides(slideIndex = n);
+ }
+
+ function showFirstSlides(n) {
+   // Trì hoãn một chút để đảm bảo DOM được cập nhật
+    setTimeout(() => {
+      let i;
+      let slides = document.getElementsByClassName("instagram-image");
+
+      let dots = document.getElementsByClassName("demo");
+      
+      if (n > slides.length) {slideIndex = 1}
+      if (n < 1) {slideIndex = slides.length}
+      for (i = 0; i < slides.length; i++) {
+        slides[i].style.display = "none";
+      }
+      for (i = 0; i < dots.length; i++) {
+        dots[i].className = dots[i].className.replace(" active", "");
+      }
+      slides[slideIndex-1].style.display = "block";
+      dots[slideIndex-1].className += " active";
+    }, 2000);
+} 
+//showFirstSlides(slideIndex)
+
+ function showSlides(n) {
+     // Trì hoãn một chút để đảm bảo DOM được cập nhật
+   setTimeout(() => {
+     let i;
+     let slides = document.getElementsByClassName("instagram-image");
+ 
+     let dots = document.getElementsByClassName("demo");
+     
+     if (n > slides.length) {slideIndex = 1}
+     if (n < 1) {slideIndex = slides.length}
+     for (i = 0; i < slides.length; i++) {
+       slides[i].style.display = "none";
+     }
+     for (i = 0; i < dots.length; i++) {
+       dots[i].className = dots[i].className.replace(" active", "");
+     }
+     slides[slideIndex-1].style.display = "block";
+     dots[slideIndex-1].className += " active";
+   }, 200);
+ } 
+//END logic case 4 Slider
   document.addEventListener("DOMContentLoaded", function () {
+    // Kiểm tra xem settings có tồn tại không
     const settings = {{ setting | json }};
+    if (!settings || !Array.isArray(settings) || settings.length === 0) {
+      console.error("Settings are invalid or empty.");
+      return;
+    }
+    //Lấy phần tử html
     const selector = document.getElementById("widget-selector");
-    const editorContainer = document.getElementById("widget-editor");
+    console.log('selector: ', selector);
     const gallery = document.getElementById("instagram-gallery");
-  
+    console.log('gallery: ', gallery);
+
+    if (!gallery) {
+      console.error("Required DOM elements are missing.");
+      return;
+    }
+
+    // Lấy giá trị đã lưu từ localStorage
+    const savedSelection = localStorage.getItem("selected_widget");
+    if (savedSelection !== null && !isNaN(parseInt(savedSelection, 10))) {
+      const selectedIndex = parseInt(savedSelection, 10);
+      console.log('settings[selectedIndex]: ', settings[selectedIndex]);
+      if (settings[selectedIndex]) {
+        
+        selector.value = selectedIndex;
+        applySetting(settings[selectedIndex]);
+      } else {
+        console.warn("Saved selection is out of range.");
+      }
+    }
+    // Gắn bộ lắng nghe vào thẻ select kích hoạt khi select thay đổi
     selector.addEventListener("change", function () {
       const selectedIndex = parseInt(this.value, 10);
+      //Lấy ra setting được chọn
       const selectedSetting = settings[selectedIndex];
-  
+
       if (selectedSetting) {
-        var columns = selectedSetting.numberOfColumns
-        var rows = selectedSetting.numberOfRows
-        var padding =  `${selectedSetting.paddingImg}px` 
-        var border = `${selectedSetting.borderImg}px`
+        // Lưu giá trị vào localStorage
+        localStorage.setItem("selected_widget", selectedIndex);
 
-        document.documentElement.style.setProperty("--columns", columns);
-        document.documentElement.style.setProperty("--rows", rows);
-        document.documentElement.style.setProperty("--padding", padding);
-        document.documentElement.style.setProperty("--border-radius",border);
-
-      
-         // Hiển thị ảnh sau khi chọn widget
-         gallery.style.display = "block";
-     
+        // Áp dụng cài đặt
+        applySetting(selectedSetting);
+      } else {
+        console.error("Selected index is invalid or not found in settings.");
       }
     });
+
+    function applySetting(setting) {
+      const instagramGallery = document.getElementById("instagram-images");
+  
+      if (!setting) {
+        console.error("Invalid setting provided.");
+        return;
+      }
+        
+        // Hàm dùng chung để áp dụng CSS cho hình ảnh
+        function applyImageStyles(container, setting) {
+          const images = container.querySelectorAll(".instagram-image img");
+          images.forEach((img) => {
+            img.style.width = "100%";
+            img.style.height = "100%";
+            img.style.objectFit = "cover";
+            img.style.borderRadius = `${setting.borderImg}px`;
+            img.style.boxShadow = "0 4px 6px rgba(0, 0, 0, 0.1)";
+            img.style.cursor = "pointer";
+          });
+        }
+        
+        // Hàm xóa toàn bộ CSS của các case trước đó
+        function resetStyles() {
+          //reset biến lưu chỉ số slider
+          slideIndex = 1;
+
+          // Lấy tất cả các phần tử có class "instagram-image"
+          const elements = document.querySelectorAll(".instagram-image");
+
+          // Duyệt qua từng phần tử và đặt display thành block
+          elements.forEach((element) => {
+            element.style.display = "block";
+          });
+
+           // Áp dụng CSS cho từng hình ảnh
+           const images = document.querySelectorAll(".instagram-image img");
+           console.log('images: ', images);
+           images.forEach((img, index) => {
+             img.style.width = "100%";
+             img.style.height = "100%";
+             img.style.cursor = "pointer";
+             img.style.borderRadius = "1px";
+            
+             // Layout đặc biệt cho ảnh đầu tiên
+              if (index === 0) {
+               const container = img.closest(".instagram-image");
+               if (container) {
+                 container.style.gridArea = "1";
+               }
+             }
+             if (index === 1) {
+               const container = img.closest(".instagram-image");
+               if (container) {
+                 container.style.gridArea = "1";
+               }
+             } 
+           });
+
+          //ẩn phần tử slider
+          
+            const row = document.getElementById('row');
+            const next = document.getElementById('next');
+            const prev = document.getElementById('prev');
+        
+          row.style.display = "none";
+          next.style.display = "none";
+          prev.style.display = "none";
+        }
+      
+      switch (setting.widgetLayout) {
+        case 1:
+        case 2: {
+          // Xóa các CSS cũ
+          resetStyles();
+      
+          // Thiết lập các biến CSS
+          document.documentElement.style.setProperty("--columns", setting.numberOfColumns);
+          document.documentElement.style.setProperty("--rows", setting.numberOfRows);
+          document.documentElement.style.setProperty("--padding", `${setting.paddingImg}px`);
+          document.documentElement.style.setProperty("--border-radius", `${setting.borderImg}px`);
+      
+          if (instagramGallery) {
+            // Áp dụng CSS cho container
+            instagramGallery.style.display = "grid";
+            instagramGallery.style.gridTemplateColumns = `repeat(${setting.numberOfColumns}, 1fr)`;
+            instagramGallery.style.gap = `${setting.paddingImg}px`;
+            instagramGallery.style.gridAutoRows = "minmax(150px, auto)";
+             // Áp dụng CSS cho từng hình ảnh
+            const images = instagramGallery.querySelectorAll(".instagram-image img");
+            images.forEach((img, index) => {
+              img.style.width = "100%";
+              img.style.height = "100%";
+              img.style.cursor = "pointer";
+        
+              // Layout đặc biệt cho ảnh đầu tiên
+              if (index === 0) {
+                const container = img.closest(".instagram-image");
+                if (container) {
+                  container.style.gridArea = "1";
+                }
+              }
+            });
+      
+            // Áp dụng CSS cho từng hình ảnh
+            applyImageStyles(instagramGallery, setting);
+          }
+      
+          // Gửi cài đặt tới server
+          sendCurrentSetting(
+            setting.numberOfColumns,
+            setting.numberOfRows,
+            `${setting.paddingImg}px`,
+            `${setting.borderImg}px`,
+            setting.widgetLayout
+          );
+          break;
+        }
+        case 3: {
+          // Xóa các CSS cũ
+          resetStyles();
+    
+          if (!instagramGallery) {
+            console.error("Không tìm thấy container instagram-images.");
+            break;
+          }
+      
+          // Áp dụng CSS cho layout 3
+          instagramGallery.style.display = "grid";
+          instagramGallery.style.gridTemplateColumns = "auto auto auto auto auto";
+          instagramGallery.style.gap = "10px";
+          instagramGallery.style.padding = "10px";
+      
+          
+            // Áp dụng CSS cho từng hình ảnh
+            const images = document.querySelectorAll(".instagram-image img");
+            console.log('images: ', images);
+            images.forEach((img, index) => {
+              img.style.width = "100%";
+              img.style.height = "100%";
+              img.style.cursor = "pointer";
+              img.style.borderRadius = "1px";
+        
+              // Layout đặc biệt cho ảnh đầu tiên
+              if (index === 0) {
+                const container = img.closest(".instagram-image");
+                if (container) {
+                  container.style.gridArea = "1 / 1 / 3 / 3";
+                }
+              }
+            });
+    
+      
+          // Gửi cài đặt tới server
+          sendCurrentSetting(
+            setting.numberOfColumns,
+            setting.numberOfRows,
+            `${setting.paddingImg}px`,
+            `${setting.borderImg}px`,
+            setting.widgetLayout
+          );
+          break;
+        }
+        case 4: {
+          // Xóa các CSS cũ
+          resetStyles();
+          //chuyển display grid thành block để ghi đè các thuộc tính grid
+          instagramGallery.style.display = "block";
+          
+          const row = document.getElementById('row');
+          const next = document.getElementById('next');
+          const prev = document.getElementById('prev');
+          //Hiển thị các thành phần đang ẩn
+          row.style.display = "block";
+          next.style.display = "block";
+          prev.style.display = "block";
+          //Hiển thị giao diện slider
+          showSlides(slideIndex)
+          // Gửi cài đặt tới server
+          sendCurrentSetting(
+            setting.numberOfColumns,
+            setting.numberOfRows,
+            `${setting.paddingImg}px`,
+            `${setting.borderImg}px`,
+            setting.widgetLayout
+          );
+          break;
+        }
+        case 5: {
+          // Xóa các CSS cũ
+          resetStyles();
+    
+          if (!instagramGallery) {
+            console.error("Không tìm thấy container instagram-images.");
+            break;
+          }
+      
+          // Áp dụng CSS cho layout 5
+          instagramGallery.style.display = "grid";
+          instagramGallery.style.gridTemplateColumns = "auto auto auto auto ";
+          instagramGallery.style.gap = "10px";
+          instagramGallery.style.padding = "10px";
+      
+          
+            // Áp dụng CSS cho từng hình ảnh
+            const images = document.querySelectorAll(".instagram-image img");
+            console.log('images: ', images);
+            images.forEach((img, index) => {
+              img.style.width = "100%";
+              img.style.height = "100%";
+              img.style.cursor = "pointer";
+              img.style.borderRadius = "1px";
+        
+              // Layout đặc biệt cho ảnh đầu tiên
+              if (index === 0) {
+                const container = img.closest(".instagram-image");
+                if (container) {
+                  container.style.gridArea = "1 / 1 / 4 / 3";
+                }
+              }
+              if (index === 1) {
+                const container = img.closest(".instagram-image");
+                if (container) {
+                  container.style.gridArea = "2 / 3 / 5 / 5";
+                }
+              }
+            });
+          // Gửi cài đặt tới server
+          sendCurrentSetting(
+            setting.numberOfColumns,
+            setting.numberOfRows,
+            `${setting.paddingImg}px`,
+            `${setting.borderImg}px`,
+            setting.widgetLayout
+          );
+          break;
+        }
+        case 6: {
+          // Xóa các CSS cũ
+          resetStyles();
+    
+          if (!instagramGallery) {
+            console.error("Không tìm thấy container instagram-images.");
+            break;
+          }
+      
+          // Áp dụng CSS cho layout 5
+          instagramGallery.style.display = "grid";
+          instagramGallery.style.gridTemplateColumns = "auto auto auto auto auto auto";
+          instagramGallery.style.gap = "10px";
+          instagramGallery.style.padding = "10px";
+      
+            // Áp dụng CSS cho từng hình ảnh
+            const images = document.querySelectorAll(".instagram-image img");
+            console.log('images: ', images);
+            images.forEach((img, index) => {
+              img.style.width = "100%";
+              img.style.height = "100%";
+              img.style.cursor = "pointer";
+              img.style.borderRadius = "1px";
+        
+              // Layout đặc biệt cho ảnh đầu tiên
+              if (index === 0) {
+                const container = img.closest(".instagram-image");
+                if (container) {
+                  container.style.gridArea = "1 / 3 / 3 / 5";
+                }
+              }
+            });
+          // Gửi cài đặt tới server
+          sendCurrentSetting(
+            setting.numberOfColumns,
+            setting.numberOfRows,
+            `${setting.paddingImg}px`,
+            `${setting.borderImg}px`,
+            setting.widgetLayout
+          );
+          break;
+        }
+
+        default:
+          console.warn("Widget layout không hợp lệ hoặc chưa được hỗ trợ.");
+          resetStyles(); // Đảm bảo reset khi không có case hợp lệ
+          break;
+      }
+      
+      gallery.style.display = "block";
+    }
+
+    function sendCurrentSetting(columns, rows, padding, border,widgetLayout) {
+      const domain = window.location.hostname; // Lấy domain shop
+      const payload = {
+        domain,
+        columns,
+        rows,
+        padding,
+        border,
+        widgetLayout
+      };
+
+      fetch("https://oz-yorkshire-prominent-wider.trycloudflare.com/api/setting", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      })
+        .then((response) => {
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+          return response.json();
+        })
+        .then((data) => {
+          console.log("Server response:", data);
+        })
+        .catch((error) => {
+          if (error.message.includes("CORS")) {
+            console.error("CORS issue detected:", error);
+          } else {
+            console.error("Error:", error);
+          }
+        });
+    }
   });
 </script>
 
-<section id="instagram-gallery" style="display: none;">
-  <div id="instagram-images" class="instagram-images"></div>
+<section id="instagram-gallery" style="display: block;">
+  <div id="instagram-images" class="instagram-images">
+    <button onclick="plusSlides(-1)" style="display:none" id="prev" class="prev">❮</button>
+    <button onclick="plusSlides(1)" style="display:none" id="next" class="next">❯</button>
+    <div style="display:none" id="row" class="row"></div>
+  </div>
 </section>
 
-<!-- CSS Layout -->
+<!-- CSS Slider -->
 <style>
-  :root {
-    /* Biến CSS mặc định */
-    --columns: ;
-    --rows: ;
-    --padding: ;
-    --border-radius: ;
-  }
-
-  /* Container chính */
-  #instagram-gallery {
-    margin: 20px auto;
-    max-width: 1200px;
-  }
-
-  .instagram-images {
-    display: grid;
-    grid-template-columns: repeat(var(--columns), 1fr);
-    grid-auto-rows: minmax(150px, auto);
-    /* Chiều cao dòng tự động */
-    gap: var(--padding);
-  }
-
-  /* Container cho mỗi ảnh */
-  .instagram-image {
-    text-align: center;
-    overflow: hidden;
-  }
-
-  .instagram-image img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    border-radius: var(--border-radius);
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  .cursor {
     cursor: pointer;
   }
+  .prev,
+  .next {
+    cursor: pointer;
+    position: absolute;
+    top: 55%;
+    width: auto;
+    padding: 16px;
+    margin-top: -50px;
+    color: white;
+    font-weight: bold;
+    font-size: 20px;
+    border-radius: 0 3px 3px 0;
+    user-select: none;
+    -webkit-user-select: none;
+    background-color: rgba(0, 0, 0, 1);
+  }
+  .next {
+    right: 0;
+    border-radius: 3px 0 0 3px;
+  }
+  .prev:hover,
+  .next:hover {
+    background-color: rgba(0, 0, 0, 0.8);
+  }
+
+  .row:after {
+    content: '';
+    display: table;
+    clear: both;
+  }
+  .column {
+    float: left;
+    width: 16.66%;
+  }
+  .demo {
+    opacity: 0.6;
+  }
+  .active,
+  .demo:hover {
+    opacity: 1;
+  }
 </style>
+
+<!-- CSS Layout -->
+{% case current_setting.widgetLayout %}
+  {% when 1 %}
+    <style>
+      :root {
+
+        /* Biến CSS mặc định */
+        --columns: {{current_setting.columns}};
+
+        --rows:{{ current_setting.rows }};
+
+        --padding:{{current_setting.padding}};
+
+        --border-radius:{{current_setting.border}};
+      }
+
+      /* Container chính */
+      #instagram-gallery {
+        margin: 20px auto;
+        max-width: 1200px;
+      }
+
+      .instagram-images {
+        display: grid;
+        grid-template-columns: repeat(var(--columns), 1fr);
+        grid-auto-rows: minmax(150px, auto);
+        /* Chiều cao dòng tự động */
+        gap: var(--padding);
+      }
+
+      .instagram-image img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        border-radius: var(--border-radius);
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        cursor: pointer;
+      }
+    </style>
+  {% when 2 %}
+    <style>
+      :root {
+
+        /* Biến CSS mặc định */
+        --columns: {{current_setting.columns}};
+
+        --rows:{{ current_setting.rows }};
+
+        --padding:{{current_setting.padding}};
+
+        --border-radius:{{current_setting.border}};
+      }
+
+      /* Container chính */
+      #instagram-gallery {
+        margin: 20px auto;
+        max-width: 1200px;
+      }
+
+      .instagram-images {
+        display: grid;
+        grid-template-columns: repeat(var(--columns), 1fr);
+        grid-auto-rows: minmax(150px, auto);
+        /* Chiều cao dòng tự động */
+        gap: var(--padding);
+      }
+
+      /* Container cho mỗi ảnh */
+      .instagram-image {
+        text-align: center;
+        overflow: hidden;
+      }
+
+      .instagram-image img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        border-radius: var(--border-radius);
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        cursor: pointer;
+      }
+    </style>
+  {% when 3 %}
+    <style>
+      .instagram-images {
+        display: grid;
+        grid-template-columns: auto auto auto auto auto;
+        gap: 10px;
+        padding: 10px;
+      }
+      .instagram-image img {
+        width: 100%;
+        height: 100%;
+        cursor: pointer;
+      }
+      .instagram-image0 {
+        grid-area: 1 / 1 / 3 / 3;
+      }
+    </style>
+  {% when 4 %}
+    <style>
+      /* BEGIN Slider*/
+      /* Position the image container (needed to position the left and right arrows) */
+      .instagram-images {
+        position: relative;
+      }
+      .instagram-image {
+        display: none;
+      }
+      /* END Slider*/
+    </style>
+    <script>
+      document.addEventListener('DOMContentLoaded', function () {
+          const row = document.getElementById('row');
+          const next = document.getElementById('next');
+          const prev = document.getElementById('prev');
+          row.style.display = 'block';
+          next.style.display = 'block';
+          prev.style.display = 'block';
+          showFirstSlides(slideIndex);
+      });
+    </script>
+  {% when 5 %}
+    <style>
+      .instagram-images {
+        display: grid;
+        grid-template-columns: auto auto auto auto;
+        gap: 10px;
+        padding: 10px;
+      }
+      .instagram-image img {
+        width: 100%;
+        height: 100%;
+        cursor: pointer;
+      }
+      .instagram-image0 {
+        grid-area: 1 / 1 / 4 / 3;
+      }
+      .instagram-image1 {
+        grid-area: 2 / 3 / 5 / 5;
+      }
+    </style>
+  {% when 6 %}
+    <style>
+      .instagram-images {
+        display: grid;
+        grid-template-columns: auto auto auto auto auto auto;
+        gap: 10px;
+        padding: 10px;
+      }
+      .instagram-image img {
+        width: 100%;
+        height: 100%;
+        cursor: pointer;
+      }
+      .instagram-image0 {
+        grid-area:  1 / 3 / 3 / 5;
+      }
+     
+    </style>
+{% endcase %}
 
 <!-- CSS Option Widget -->
 <style>
@@ -422,6 +1025,7 @@
       const avatar = data.profile_picture_url;
       const mediaData = data.media.data;
       const gallery = document.getElementById('instagram-images');
+      const row = document.getElementById('row');
 
       // Hàm tạo modal và gán vào body
       const createModal = (imageURL, caption, username, avatar) => {
@@ -509,15 +1113,29 @@
       };
 
       // Render bài viết
-      mediaData.forEach((item) => {
+      mediaData.forEach((item, index) => {
         const postHTML = `
-          <div class="instagram-image">
-            <img src="${item.media_url}" alt="${item.caption || 'Instagram Post'}" data-caption="${item.caption || ''}">
+          <div id="instagram-image${index}" class="instagram-image instagram-image${index}">
+            <img style="width:100%" src="${item.media_url}" alt="${item.caption || 'Instagram Post'}" data-caption="${
+          item.caption || ''
+        }">
           </div>
         `;
         gallery.insertAdjacentHTML('beforeend', postHTML);
       });
-
+      //render demo slider
+      mediaData.forEach((item, index) => {
+        const postDemoImg = `
+                <div class="column">
+                 <img class="demo cursor" src="${
+                   item.media_url
+                 }" onclick="event.preventDefault(); event.stopPropagation(); currentSlide(${
+          index + 1
+        });" style="width:100%">
+                </div>
+            `;
+        row.insertAdjacentHTML('beforeend', postDemoImg);
+      });
       // Thêm sự kiện click vào ảnh
       gallery.addEventListener('click', (event) => {
         if (event.target.tagName === 'IMG') {

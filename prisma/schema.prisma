@@ -27,12 +27,12 @@ model Session {
 }
 
 model Account {
-  id              Int            @id @default(autoincrement())
-  accessToken     String
-  accountName     String
-  sessionId       String
-  session         Session        @relation("SessionAccounts", fields: [sessionId], references: [id])
-  widgetSetting   WidgetSetting[] @relation("Setting")
+  id            Int             @id @default(autoincrement())
+  accessToken   String
+  accountName   String
+  sessionId     String
+  session       Session         @relation("SessionAccounts", fields: [sessionId], references: [id])
+  widgetSetting WidgetSetting[] @relation("Setting")
 }
 
 model WidgetSetting {
@@ -44,6 +44,7 @@ model WidgetSetting {
   numberOfRows    Int
   paddingImg      Int
   borderImg       Int
-  accountId       Int     
+  accountId       Int
+  widgetLayout    Int
   account         Account @relation("Setting", fields: [accountId], references: [id])
 }

@@ -1,409 +1,326 @@
-import { useState, useCallback } from 'react';
 import {
-    InlineGrid,
+    Page, LegacyCard,
+    IndexTable,
+    useIndexResourceState,
     Text,
-    InlineStack,
-    Page,
     Box,
-    Divider,
-    Card,
-    Scrollable,
-    BlockStack,
-    TextField,
-    Select,
-    useBreakpoints,
-    Badge,
     Button,
-    Checkbox,
-    Modal,
-    LegacyCard,
-    EmptyState
+    Popover, ActionList,
+    TextField,
+    BlockStack,
+    Card,
+    InlineStack,
+    ChoiceList,
+    InlineGrid,
+    SkeletonPage,
+    Layout,
+    SkeletonBodyText,
+    Divider,
+    SkeletonThumbnail,
+    SkeletonDisplayText
 } from '@shopify/polaris';
-import {
-} from '@shopify/polaris-icons';
-// import { accessTokenCookie } from "../createCookie";
-import { json } from "@remix-run/node";
-import styles from '../style/style.css?url'
-import { useLoaderData } from "@remix-run/react";
-import axios from 'axios';
-import db from "../db.server";
-import { authenticate } from "../shopify.server";
-
+import { PlusIcon, MenuVerticalIcon } from '@shopify/polaris-icons';
+import { useState, useCallback, useEffect } from 'react';
+import { Modal, TitleBar, useAppBridge } from '@shopify/app-bridge-react';
+import { useNavigate, Outlet, useParams } from "@remix-run/react";
+import styles from '../style/style-widget.css?url'
 export const links = () => [{ rel: "stylesheet", href: styles }];
 
-export async function loader({ request }) {
-    const { session } = await authenticate.admin(request);
-    const widget = await db.account.findFirst({
-        where: { sessionId: session.id },
-    })
-    // const cookieHeader = request.headers.get("Cookie");
-    // const accessToken = await accessTokenCookie.parse(cookieHeader);
-    const accessToken = widget?.accessToken
-    if (accessToken) {
-        try {
-            const response = await axios.get('https://graph.instagram.com/me', {
-                params: {
-                    fields: 'profile_picture_url,username,media{caption,media_type,media_url,comments_count,like_count,timestamp}',
-                    access_token: accessToken
-                }
-            });
 
-            const posts = response?.data;
-            return json({ posts });
+export default function PageExample() {
+    //Tạo biến để sử dụng modal và savebar
+    const shopify = useAppBridge()
+    //Xử dụng hook useSubmit để đấy dữ liệu từ hàm front sang action ở back
+    const navigate = useNavigate();
+    const params = useParams();
 
-        } catch (error) {
-            console.error('Lỗi khi lấy bài viết:', error.response?.data || error.message);
-            throw error;
+    useEffect(() => {
+        shopify.loading(false)
+    }, [shopify]);
+    //Source name
+    const [sourceNameValue, setSourceNameValue] = useState('');
+    const handleSourceNameChange = useCallback(
+        (value) => setSourceNameValue(value),
+        [],
+    );
+    //Chọn account tạo source
+    const [selected, setSelected] = useState(['hidden']);
+    const handleChange = useCallback((value) => setSelected(value), []);
+    const orders = [
+        {
+            Name: 'Test source',
+            Type: 'Instagram',
+            Account: 'Tungvan2024',
+            Item: '6',
+            updated: 'Now',
+            id: '1'
         }
-    }
+    ];
+    const resourceName = {
+        singular: 'order',
+        plural: 'orders',
+    };
 
-    return null;
-}
+    const { selectedResources, allResourcesSelected, handleSelectionChange } =
+        useIndexResourceState(orders);
+    // State để quản lý Popover được mở
+    const [activePopoverId, setActivePopoverId] = useState(null);
+    // Hàm mở Popover cho một dòng cụ thể
+    const openPopover = (id) => setActivePopoverId(id);
+    // Hàm đóng Popover
+    const closePopover = () => setActivePopoverId(null);
 
+    const rowMarkup = orders.map(
+        (
+            { id, Name, Type, Account, Item, updated },
+            index,
+        ) => {
+            //Biến lưu button icon popup
+            const activator = (
+                <Button
+                    icon={MenuVerticalIcon}
+                    onClick={(e) => {
+                        e.stopPropagation(); // Ngăn sự kiện click từ bubble lên dòng
+                        activePopoverId === id ? closePopover() : openPopover(id);
+                    }}
+                />
+            );
 
-export default function Source() {
-
-    const [active, setActive] = useState(false);
-    const [currentPost, setCurrentPost] = useState(null)
-
-    const handleChange = useCallback((post) => {
-        setActive(!active)
-        setCurrentPost(post)
-    }, [active])
-
-    const loaderData = useLoaderData();
-    const posts = loaderData?.posts || []
-
-    const [textFieldValue, setTextFieldValue] = useState(posts.username);
-
-    const handleTextFieldChange = useCallback(
-        (value) => setTextFieldValue(value),
-        [],
-    );
-    const [enabled, setEnabled] = useState(true);
-
-    const handleToggle = useCallback(() => setEnabled((enabled) => !enabled), []);
-
-    const contentStatus = enabled ? 'Turn off' : 'Turn on';
-
-    const toggleId = 'setting-toggle-uuid';
-
-    const { mdDown } = useBreakpoints();
-
-    const badgeStatus = enabled ? 'success' : undefined;
-
-    const badgeContent = enabled ? 'On' : 'Off';
-
-    const title = 'Auto sync';
-
-    const titleEmail = 'Get notified by email'
-
-    const settingStatusMarkup = (
-        <Badge
-            tone={badgeStatus}
-            toneAndProgressLabelOverride={`Setting is ${badgeContent}`}
-        >
-            {badgeContent}
-        </Badge>
-    );
-
-    const settingTitle = title ? (
-        <InlineStack gap="200" wrap={false}>
-            <InlineStack gap="200" align="start" blockAlign="baseline">
-                <label htmlFor={toggleId}>
-                    <Text variant="headingMd" as="h6">
-                        {title}
-                    </Text>
-                </label>
-                <InlineStack gap="200" align="center" blockAlign="center">
-                    {settingStatusMarkup}
-                </InlineStack>
-            </InlineStack>
-        </InlineStack>
-    ) : null;
-    const settingTitleEmail = titleEmail ? (
-        <InlineStack gap="200" wrap={false}>
-            <InlineStack gap="200" align="start" blockAlign="baseline">
-                <label htmlFor={toggleId}>
-                    <Text variant="headingMd" as="h6">
-                        {titleEmail}
-                    </Text>
-                </label>
-                <InlineStack gap="200" align="center" blockAlign="center">
-                    {settingStatusMarkup}
-                </InlineStack>
-            </InlineStack>
-        </InlineStack>
-    ) : null;
-
-    const actionMarkup = (
-        <Button
-            disabled
-            role="switch"
-            id={toggleId}
-            ariaChecked={enabled ? 'true' : 'false'}
-            onClick={handleToggle}
-            size="slim"
-        >
-            {contentStatus}
-        </Button>
-    );
-
-    const headerMarkup = (
-        <Box width="100%">
-            <InlineStack
-                gap="1200"
-                align="space-between"
-                blockAlign="start"
-                wrap={false}
-            >
-                {settingTitle}
-                {!mdDown ? (
-                    <Box minWidth="fit-content">
-                        <InlineStack align="end">{actionMarkup}</InlineStack>
-                    </Box>
-                ) : null}
-            </InlineStack>
-        </Box>
-    )
-    const headerMarkupEmail = (
-        <Box width="100%">
-            <InlineStack
-                gap="1200"
-                align="space-between"
-                blockAlign="start"
-                wrap={false}
-            >
-                {settingTitleEmail}
-                {!mdDown ? (
-                    <Box minWidth="fit-content">
-                        <InlineStack align="end">{actionMarkup}</InlineStack>
-                    </Box>
-                ) : null}
-            </InlineStack>
-        </Box>
-    )
-
-    const [checked, setChecked] = useState(false);
-    const handleChangeCheck = useCallback(
-        (newChecked) => setChecked(newChecked),
-        [],
-    )
-
-    if (!loaderData) {
-        return (
-            <>
-                <Box padding='400'>
-                    <Text variant="headingLg" as="h5">
-                        Media sources
-                    </Text>
-                </Box>
-                
-                     <LegacyCard sectioned>
-                          <EmptyState
-                            heading="Manage your inventory transfers"
-                            action={{content: 'Add transfer'}}
-                            secondaryAction={{
-                              content: 'Learn more',
-                              url: 'https://help.shopify.com',
-                            }}
-                            image="https://cdn.shopify.com/s/files/1/0262/4071/2726/files/emptystate-files.png"
-                          >
-                            <p>No source media availble</p>
-                          </EmptyState>
-                        </LegacyCard>
-                
-            </>
-        )
-    } else {
-        const date = new Date(posts.media.data[0].timestamp);
-
-        // Định dạng lại ngày giờ thành dạng thân thiện
-        const options = {
-            year: "numeric",
-            month: "long",
-            day: "numeric",
-            hour: "2-digit",
-            minute: "2-digit",
-            second: "2-digit",
-            timeZoneName: "short",
-        };
-        const formattedDate = new Intl.DateTimeFormat("en-US", options).format(date);
-        return (
-            <>
-                <Page >
-                    <Box padding='400'>
-                        <Text variant="headingLg" as="h5">
-                            Media sources
+            return (
+                <IndexTable.Row
+                    id={id}
+                    key={id}
+                    selected={selectedResources.includes(id)}
+                    position={index}
+                    onClick={() => {navigate(`/app/source/${id}`); shopify.loading(true)}}
+                >
+                    <IndexTable.Cell>
+                        <Text alignment='center' variant="bodyMd" fontWeight="bold" as="span">
+                            {Name}
                         </Text>
-                    </Box>
-                    <div>
-                        <InlineGrid gap="400" columns={['oneThird', 'twoThirds']}>
-                            <Card padding="0">
+                    </IndexTable.Cell>
+                    <IndexTable.Cell>{Type}</IndexTable.Cell>
+                    <IndexTable.Cell>{Account}</IndexTable.Cell>
+                    <IndexTable.Cell>
+                        <Text as="span" numeric>
+                            {Item}
+                        </Text>
+                    </IndexTable.Cell>
+                    <IndexTable.Cell>{updated}</IndexTable.Cell>
+                    <IndexTable.Cell>
+                        <Popover
+                            active={activePopoverId === id}
+                            activator={activator}
+                            autofocusTarget="first-node"
+                            onClose={closePopover}
+                        >
+                            <ActionList
+                                actionRole="menuitem"
+                                items={[
+                                    { content: "Edit", onAction: () => console.log("Edit clicked") },
+                                    { content: "Pause", onAction: () => console.log("Pause clicked") },
+                                    { content: "Delete", onAction: () => console.log("Delete clicked") },
+                                ]}
+                            />
+                        </Popover>
+                    </IndexTable.Cell>
+                </IndexTable.Row>
+            )
+        });
+
+    const promotedBulkActions = [
+        {
+            content: 'Delete',
+            onAction: () => console.log('Todo: implement payment capture'),
+            destructive: true
+        }
+    ];
+
+    const Skeleton = () => {
+        return (
+            <SkeletonPage backAction title="Edit Media Source" primaryAction>
+                <div style={{ height: '90vh' }}>
+                    <Layout>
+                        <Layout.Section variant="oneThird">
+                            <Card>
                                 <Box padding="400">
                                     <Text variant="headingLg" as="h5">
                                         Setting
                                     </Text>
                                 </Box>
                                 <Divider borderColor="border" />
-                                <Box paddingInline="400" paddingBlock="400" >
-                                    <Scrollable style={{ height: 'calc(-220px + 100vh)' }} >
-                                        <Box width='99%' >
-                                            <BlockStack gap="500">
-                                                <TextField
-                                                    label="Store name"
-                                                    value={textFieldValue}
-                                                    onChange={handleTextFieldChange}
-                                                    maxLength={20}
-                                                    autoComplete="off"
-                                                    showCharacterCount
-                                                />
-                                                <Select
-                                                    label="Media sourse type"
-                                                    disabled
-                                                    options={[
-                                                        { label: 'Instagram', value: 'Instagram' },
-                                                        { label: 'Facebook', value: 'Facebook' },
-                                                        { label: 'Tiktok', value: 'Tiktok' },
-                                                    ]}
-                                                />
-                                                <Box>
-                                                    <BlockStack >
-                                                        {headerMarkup}
-                                                    </BlockStack>
-                                                </Box>
-                                                <Select
-                                                    disabled
-                                                    options={[
-                                                        { label: 'Today', value: 'today' },
-                                                        { label: 'Yesterday', value: 'yesterday' },
-                                                        { label: 'Last 7 days', value: 'lastWeek' },
-                                                    ]}
-                                                />
-                                                <Text variant="bodyMd" as="span">
-                                                    Last updated on December 12, 2024 01:21
-                                                </Text>
-                                                <Button disabled fullWidth>Start Sync</Button>
-                                                <Divider borderColor="border" />
-                                                <Box>
-                                                    <BlockStack >
-                                                        {headerMarkupEmail}
-                                                    </BlockStack>
-                                                </Box>
-                                                <TextField
-                                                    disabled
-                                                    placeholder="exemple@gmail.com"
-                                                    autoComplete="off"
-                                                />
-                                            </BlockStack>
-                                        </Box>
-                                    </Scrollable>
+                                <Box paddingBlockStart='400'>
+                                    <BlockStack gap='200'>
+                                        <SkeletonDisplayText size="small" />
+                                        <SkeletonBodyText />
+                                        <SkeletonDisplayText size="small" />
+                                        <SkeletonBodyText />
+                                        <SkeletonDisplayText size="small" />
+                                        <SkeletonBodyText />
+                                        <SkeletonDisplayText size="small" />
+                                        <SkeletonBodyText />
+                                        <SkeletonDisplayText size="small" />
+                                        <SkeletonDisplayText size="small" />
+
+                                    </BlockStack>
                                 </Box>
                             </Card>
-
-                            <Card padding="0">
+                        </Layout.Section>
+                        <Layout.Section >
+                            <Card >
                                 <Box padding="400">
                                     <Text variant="headingLg" as="h5">
-                                        Preview sourse
+                                        Preview source
                                     </Text>
                                 </Box>
                                 <Divider borderColor="border" />
-                                <Box padding="400">
-                                    <Checkbox
-                                        label="Select all"
-                                        checked={checked}
-                                        onChange={handleChangeCheck}
-                                    />
+                                <Box paddingBlockStart='400'>
+                                    <BlockStack gap='200'>
+                                        <InlineStack align='space-between'>
+                                            <SkeletonThumbnail size="large" />
+                                            <SkeletonThumbnail size="large" />
+                                            <SkeletonThumbnail size="large" />
+                                            <SkeletonThumbnail size="large" />
+                                            <SkeletonThumbnail size="large" />
+                                            <SkeletonThumbnail size="large" />
+                                        </InlineStack>
+                                        <InlineStack align='space-between'>
+                                            <SkeletonThumbnail size="large" />
+                                            <SkeletonThumbnail size="large" />
+                                            <SkeletonThumbnail size="large" />
+                                            <SkeletonThumbnail size="large" />
+                                            <SkeletonThumbnail size="large" />
+                                            <SkeletonThumbnail size="large" />
+                                        </InlineStack>
+                                        <InlineStack align='space-between'>
+                                            <SkeletonThumbnail size="large" />
+                                            <SkeletonThumbnail size="large" />
+                                            <SkeletonThumbnail size="large" />
+                                            <SkeletonThumbnail size="large" />
+                                            <SkeletonThumbnail size="large" />
+                                            <SkeletonThumbnail size="large" />
+                                        </InlineStack>
+                                        <InlineStack align='space-between'>
+                                            <SkeletonThumbnail size="large" />
+                                            <SkeletonThumbnail size="large" />
+                                            <SkeletonThumbnail size="large" />
+                                            <SkeletonThumbnail size="large" />
+                                            <SkeletonThumbnail size="large" />
+                                            <SkeletonThumbnail size="large" />
+                                        </InlineStack>
+                                        <InlineStack align='space-between'>
+                                            <SkeletonThumbnail size="large" />
+                                            <SkeletonThumbnail size="large" />
+                                            <SkeletonThumbnail size="large" />
+                                            <SkeletonThumbnail size="large" />
+                                            <SkeletonThumbnail size="large" />
+                                            <SkeletonThumbnail size="large" />
+                                        </InlineStack>
+                                    </BlockStack>
                                 </Box>
-                                <Scrollable style={{ height: 'calc(-220px + 100vh)' }}>
-                                    <div className="list-media-source">
-                                        {posts.media.data.map((post, index) => (
-                                            <div
-                                                key={index}
-                                                onClick={() => handleChange(post)}
-                                                style={{ backgroundImage: `url(${post.media_url})` }}
-                                                className="list-media-source-item"
-                                            >
-                                            </div>
-                                        ))}
-                                    </div>
-                                </Scrollable>
 
                             </Card>
-                        </InlineGrid>
-                    </div>
-                </Page>
-
-                {/* <Frame> */}
-                {currentPost &&
-                    <Modal
-                        size="large"
-                        open={active}
-                        onClose={handleChange}
-                    >
-                        <Modal.Section style={{ padding: '0' }}>
-
-
-                            <div className='modal'>
-                                <div className='modal-left'>
-                                    <div style={{ backgroundImage: `url(${currentPost.media_url})` }} className="modal-left-media"></div>
-                                </div>
-                                <div className="modal-right">
-                                    <div className="modal-right-infor">
-                                        <BlockStack >
-                                            <div className="modal-right-infor-header">
-                                                <InlineStack gap="400" wrap={false} blockAlign="center">
-                                                    <div style={{ backgroundImage: `url(${posts.profile_picture_url})` }} className="modal-right-infor-header-avatar">
-                                                    </div>
-                                                    <div className="modal-right-infor-header-name">{posts.username}</div>
-                                                </InlineStack>
-                                            </div>
-                                            <div className="modal-right-infor-content">
-                                                <div className="modal-right-infor-content-total-reaction">
-                                                    <Box padding="400" >
-                                                        <InlineStack align='center' gap="600" wrap={false} blockAlign="center">
-                                                            <BlockStack inlineAlign='center'>
-                                                                <Text fontWeight="medium" as="p">
-                                                                    {currentPost.like_count}
-                                                                </Text>
-                                                                <Text tone='subdued' as="p">
-                                                                    Like
-                                                                </Text>
-                                                            </BlockStack>
-                                                            <BlockStack inlineAlign='center'>
-                                                                <Text fontWeight="medium" as="p">
-                                                                    {currentPost.comments_count}
-                                                                </Text>
-                                                                <Text tone='subdued' as="p">
-                                                                    Comment
-                                                                </Text>
-                                                            </BlockStack>
-                                                        </InlineStack>
-                                                    </Box>
-                                                </div>
-                                                <Scrollable style={{ height: "calc(-260px + 100vh)" }} >
-                                                    <div>{currentPost.caption}</div>
-                                                </Scrollable>
-                                            </div>
-                                            <div className="modal-right-infor-footer">
-                                                {formattedDate}
-                                            </div>
-                                        </BlockStack>
-                                    </div>
-                                </div>
-                            </div>
-
-                        </Modal.Section>
-                    </Modal>
-                }
-
-
-                {/* </Frame> */}
-            </>
-
+                        </Layout.Section>
+                    </Layout>
+                </div>
+            </SkeletonPage>
         )
     }
 
+    if (params.sourceId) {
+        return <Outlet />
+    }
+    return (
+        <>
+            <Page
+                title="All media sources"
+                primaryAction={<Button icon={PlusIcon} variant="primary" onClick={() => { shopify.modal.show('my-modal'); }}>Add new account</Button>}
+                fullWidth
+            >
+                <Box paddingBlockEnd="400">
+                    <LegacyCard>
+                        <IndexTable
+                            resourceName={resourceName}
+                            itemCount={orders.length}
+                            selectedItemsCount={
+                                allResourcesSelected ? 'All' : selectedResources.length
+                            }
+                            promotedBulkActions={promotedBulkActions}
+                            onSelectionChange={handleSelectionChange}
+                            headings={[
+                                { title: 'Name', alignment: 'center' },
+                                { title: 'Type' },
+                                { title: 'From account' },
+                                { title: 'Items' },
+                                { title: 'Last updated' },
+                                { title: 'Action' },
+                            ]}
+                            pagination={{
+                                hasNext: true,
+                                onNext: () => { },
+                            }}
+                        >
+                            {rowMarkup}
+                        </IndexTable>
+                    </LegacyCard>
+                </Box>
+            </Page>
+            <Modal id="my-modal">
+                <BlockStack>
+                    <Box padding='400' background="bg-surface" borderRadius="100">
+                        <Card>
+                            <TextField
+                                label="Name your media source"
+                                value={sourceNameValue}
+                                onChange={handleSourceNameChange}
+                                placeholder="Please enter..."
+                                autoComplete="off"
+                            />
+                        </Card>
+                    </Box>
+                    <Box padding='400' background="bg-surface" borderRadius="100">
+                        <Card>
+                            <BlockStack gap='200'>
+                                <InlineStack align="space-between">
+                                    <Text variant="headingMd" as="h6">
+                                        Account
+                                    </Text>
+                                    <Button icon={PlusIcon} variant="plain">Add new account</Button>
+                                </InlineStack>
+                                <Card>
+                                    <BlockStack gap='200'>
+                                        <Text variant="bodyMd" as="p">
+                                            Select profile
+                                        </Text>
+                                        <InlineGrid columns={2}>
+                                            <Box borderStyle='solid' borderRadius="200" borderWidth='25' padding='200'>
+                                                <InlineStack align='space-between'>
+                                                    <InlineStack gap='200' blockAlign='center'>
+                                                        <div className='item-select-profile-name'>I</div>
+                                                        <div className='item-select-profile-username'>Tungvan2024</div>
+                                                    </InlineStack>
+                                                    <ChoiceList
+                                                        choices={[
+                                                            { label: '', value: 'hidden' },
+                                                        ]}
+                                                        selected={selected}
+                                                        onChange={handleChange}
+                                                    />
+                                                </InlineStack>
+                                            </Box>
+                                        </InlineGrid>
+                                    </BlockStack>
+                                </Card>
+                            </BlockStack>
+                        </Card>
+                    </Box>
+                </BlockStack>
+                <TitleBar title="Add new media source">
+                    <button onClick={() => { shopify.modal.hide('my-modal') }} variant="primary">Next</button>
+                    <button onClick={() => shopify.modal.hide('my-modal')}>Cancel</button>
+                </TitleBar>
+            </Modal>
+        </>
+    );
+
 }
-
-

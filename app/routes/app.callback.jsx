@@ -39,6 +39,8 @@ export async function loader({ request }) {
     );
 
     const { access_token: accessToken } = response.data;
+    console.log('accessToken: ', accessToken);
+    console.log('response.data: ', response.data);
     const longLivedTokenResponse = await axios.get('https://graph.instagram.com/access_token', {
       params: {
         grant_type: 'ig_exchange_token',
@@ -126,7 +128,7 @@ export default function CallBack() {
   const app = createApp(config);
   const redirect = Redirect.create(app);
   redirect.dispatch(Redirect.Action.ADMIN_PATH, {
-    path: `/apps/test-theme-28/app/testlogin`,
+    path: `/apps/test-theme-28/app/account`,
     newContext: false,
   });
 

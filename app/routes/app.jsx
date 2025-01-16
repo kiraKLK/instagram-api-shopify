@@ -54,7 +54,8 @@ export default function App() {
         <Link to="/app" rel="home" onClick={(event) => handleClick(event, "/app")}>
           Home
         </Link>
-        <Link to="/app/testlogin" onClick={(event) => handleClick(event, "/app/testlogin")}>Account</Link>
+        <Link to="/app/account" onClick={(event) => handleClick(event, "/app/account")}>Account</Link>
+        <Link to="/app/test-deffered">test-deffered</Link>
         <Link to="/app/source" onClick={(event) => handleClick(event, "/app/source")}>Media source</Link>
         <Link to="/app/widget" onClick={(event) => handleClick(event, "/app/widget")}>Widget</Link>
       </NavMenu>

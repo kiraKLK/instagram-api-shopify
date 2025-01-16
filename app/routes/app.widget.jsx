@@ -26,7 +26,7 @@ import {
 } from "@shopify/polaris";
 
 // import { accessTokenCookie } from "../createCookie";
-import { MenuVerticalIcon, ChevronRightIcon, XIcon, CheckSmallIcon, DesktopIcon, MobileIcon } from "@shopify/polaris-icons";
+import { MenuVerticalIcon, ChevronRightIcon, XIcon, CheckSmallIcon, DesktopIcon, MobileIcon,PlusIcon } from "@shopify/polaris-icons";
 import { Modal, TitleBar, useAppBridge, SaveBar } from '@shopify/app-bridge-react';
 import styles from '../style/style-widget.css?url'
 import axios from 'axios';
@@ -95,7 +95,8 @@ export const action = async ({ request, params }) => {
         const numberOfRows = parseInt(formData?.numberOfRows?.toString() ?? "1", 10);
         const accountName = formData?.accountName?.toString() ?? "";
         const borderImg = parseInt(formData?.borderImg?.toString() ?? "1", 10);
-        const paddingImg = parseInt(formData?.paddingImg?.toString() ?? "1", 10);
+        const paddingImg = parseInt(formData?.paddingImg?.toString() ?? "0", 10);
+        const widgetLayout = parseInt(formData?.widgetLayout?.toString() ?? "1", 10);
 
         const widgetIds = formData?.ids?.split(',').map(Number) // Chuyển 1 chuỗi số cách nhau bằng dấu , thành Int[]
 
@@ -138,25 +139,32 @@ export const action = async ({ request, params }) => {
 
             // Sử dụng upsert để tạo mới hoặc cập nhật dựa trên sessionId
             if (existingSetting) {
-                // Kiểm tra trùng lặp trong database
-                const existsInDatabase = await db.widgetSetting.findFirst({
-                    where: { widgetName: widgetName },
-                });
+                // Kiểm tra nếu widgetName thay đổi
+                if (existingSetting.widgetName !== widgetName) {
+                    // Kiểm tra xem tên mới có trùng lặp trong database hay không (trừ bản ghi hiện tại)
+                    const existsInDatabase = await db.widgetSetting.findFirst({
+                        where: {
+                            widgetName: widgetName,
+                            NOT: { id: existingSetting.id }, // Loại trừ bản ghi hiện tại
+                        },
+                    });
 
-                if (existsInDatabase) {
-                    console.log("Setting with this widgetName already exists in database, skipping:", widgetName);
-                    return json({
-                        success: false,
-                        message: `Setting with widgetName "${widgetName}" already exists in database.`,
-                    }, { status: 409 }); // Conflict status
+                    if (existsInDatabase) {
+                        // Nếu trùng, trả về lỗi
+                        console.log("Setting with this widgetName already exists in database, skipping:", widgetName);
+                        return json({
+                            success: false,
+                            message: `Setting with widgetName "${widgetName}" already exists in database.`,
+                        }, { status: 409 }); // Conflict status
+                    }
                 }
 
-                // Tiêu chí tìm setting cần cập nhật (ví dụ: widgetName)
+                // Tiêu chí tìm setting cần cập nhật
                 const targetWidgetName = await db.widgetSetting.findUnique({
                     where: {
-                        id: existingSetting?.id
-                    }
-                }); // Thay bằng tên hoặc ID cụ thể bạn muốn cập nhật
+                        id: existingSetting.id,
+                    },
+                });
 
                 // Dữ liệu mới để cập nhật
                 const updatedSettingMetafield = {
@@ -166,7 +174,8 @@ export const action = async ({ request, params }) => {
                     numberOfColumns: numberOfColumns,
                     numberOfRows: numberOfRows,
                     paddingImg: paddingImg,
-                    borderImg: borderImg
+                    borderImg: borderImg,
+                    widgetLayout:widgetLayout
                 };
 
                 // Tìm và cập nhật setting trong mảng
@@ -195,24 +204,17 @@ export const action = async ({ request, params }) => {
                 } catch (error) {
                     console.error("Error saving updated Metafield:", error);
                 }
-                
+
                 // Nếu đã tồn tại, cập nhật bản ghi hiện tại
                 const updatedSetting = await db.widgetSetting.update({
-                    where: { id: existingSetting?.id }, // Cập nhật bằng id (unique)
-                    data: {
-                        widgetName: widgetName,
-                        gallary: gallary,
-                        widgetTemplate: widgetTemplate,
-                        numberOfColumns: numberOfColumns,
-                        numberOfRows: numberOfRows,
-                        paddingImg: paddingImg,
-                        borderImg: borderImg
-                    },
+                    where: { id: existingSetting.id }, // Cập nhật bằng id (unique)
+                    data: updatedSettingMetafield,
                 });
+
                 console.log("Update successfull!", updatedSetting);
                 return json({
                     success: true,
-                    message: "Widget updated successfully."
+                    message: "Widget updated successfully.",
                 }, { status: 200 });
             } else {
                 // Tạo setting mới
@@ -224,6 +226,7 @@ export const action = async ({ request, params }) => {
                     numberOfRows,
                     borderImg,
                     paddingImg,
+                    widgetLayout
                 };
 
                 // Kiểm tra và thêm setting mới nếu chưa tồn tại
@@ -251,7 +254,7 @@ export const action = async ({ request, params }) => {
                 } catch (error) {
                     console.error("Error saving Metafield:", error);
                 }
-                
+
                 // Kiểm tra trùng lặp trong database
                 const existsInDatabase = await db.widgetSetting.findFirst({
                     where: { widgetName: widgetName },
@@ -275,7 +278,8 @@ export const action = async ({ request, params }) => {
                         numberOfRows: numberOfRows,
                         paddingImg: paddingImg,
                         borderImg: borderImg,
-                        accountId: accountForSetting.id
+                        accountId: accountForSetting.id,
+                        widgetLayout:widgetLayout
                     },
                 });
                 //update 
@@ -390,6 +394,7 @@ export default function TabsWithTablesExample() {
                 accountName: 'tungvan2024',
                 paddingImg: rangeValuePadding,
                 borderImg: rangeValueBorder,
+                widgetLayout: selectedLayout,
                 _action: actionType,
             }
             // Gửi dữ liệu tới server
@@ -433,7 +438,7 @@ export default function TabsWithTablesExample() {
     }
 
     //Xử lý input text 
-    const [textFieldValue, setTextFieldValue] = useState(widget[0]?.widgetName || '');
+    const [textFieldValue, setTextFieldValue] = useState("");
     const [showError, setShowError] = useState(false);
     const handleTextFieldChange = useCallback(
         (value) => {
@@ -448,9 +453,8 @@ export default function TabsWithTablesExample() {
         },
         [showError]
     );
-
     //Xử lý input select
-    const [selectedSelect, setSelectedSelect] = useState(widget[0]?.gallary || 'default');
+    const [selectedSelect, setSelectedSelect] = useState('default');
     const handleSelectChange = useCallback(
         (value) => {
             setSelectedSelect(value);
@@ -458,49 +462,60 @@ export default function TabsWithTablesExample() {
         [],
     );
     //Xử lý setting layout số cột
-    const [rangeValueColumn, setRangeValueColumn] = useState(widget[0]?.numberOfColumns || 4);
+    const [rangeValueColumn, setRangeValueColumn] = useState(4);
     const handleRangeSliderChangeColumn = useCallback(
         (value) => setRangeValueColumn(value),
         [],
     );
     //Xử lý setting layout số dòng
-    const [rangeValueRow, setRangeValueRow] = useState(widget[0]?.numberOfRows || 2);
+    const [rangeValueRow, setRangeValueRow] = useState(2);
     const handleRangeSliderChangeRow = useCallback(
         (value) => setRangeValueRow(value),
         [],
     );
     //Xử lý setting layout padding lẫn nhau
-    const [rangeValuePadding, setRangeValuePadding] = useState(widget[0]?.paddingImg || 1);
+    const [rangeValuePadding, setRangeValuePadding] = useState(1);
     const handleRangeSliderChangePadding = useCallback(
         (value) => setRangeValuePadding(value),
         [],
     );
     //Xử lý setting layout boder của hình ảnh
-    const [rangeValueBorder, setRangeValueBorder] = useState(widget[0]?.borderImg || 1);
+    const [rangeValueBorder, setRangeValueBorder] = useState(1);
     const handleRangeSliderChangeBorder = useCallback(
         (value) => setRangeValueBorder(value),
+        [],
+    );
+    //Xử lý chọn view widget
+    const [selectedLayout, setSelectedLayout] = useState(1);
+    const handleSelect = useCallback(
+        (value) => setSelectedLayout(value),
         [],
     );
     //Xử lý khi có thay đổi setting
     const isFormChanged = (id) => {
         const formValues = defaultForm(id); // Gọi hàm và lưu kết quả vào biến
+        
         return (
             textFieldValue !== formValues.widgetName ||
             selectedSelect !== formValues.gallery ||
             rangeValueColumn !== formValues.rangeValueColumn ||
             rangeValueRow !== formValues.rangeValueRow ||
             rangeValueBorder !== formValues.rangeValueBorder ||
-            rangeValuePadding !== formValues.rangeValuePadding
+            rangeValuePadding !== formValues.rangeValuePadding ||
+            selectedLayout !== formValues.widgetLayout
         )
     }
 
-    const defaultForm = (index) => ({
+    const defaultForm = (index) => (
+        {
         widgetName: widget[index]?.widgetName || '',
         gallery: widget[index]?.gallary || 'default',
         rangeValueColumn: widget[index]?.numberOfColumns || 4,
         rangeValueRow: widget[index]?.numberOfRows || 2,
-        rangeValuePadding: widget[index]?.paddingImg || 1,
+        rangeValuePadding: widget[index]?.paddingImg || 0,
         rangeValueBorder: widget[index]?.borderImg || 1,
+        widgetLayout: widget[index]?.widgetLayout || 1
+        
     });
     //Kiểm tra thay đổi setting theo từng bản ghi
     useEffect(() => {
@@ -525,7 +540,7 @@ export default function TabsWithTablesExample() {
         rangeValueRow,
         rangeValuePadding,
         rangeValueBorder,
-
+        selectedLayout
     ]);
     // reset lỗi khi mở modal tạo mới
     useEffect(() => {
@@ -541,6 +556,7 @@ export default function TabsWithTablesExample() {
         setRangeValueRow(formValues.rangeValueRow);
         setRangeValueBorder(formValues.rangeValueBorder);
         setRangeValuePadding(formValues.rangeValuePadding);
+        setSelectedLayout(formValues.widgetLayout)
     };
 
     //hàm làm trống form khi tạo widget mới
@@ -553,11 +569,12 @@ export default function TabsWithTablesExample() {
         setRangeValueRow(2)
         setRangeValueBorder(1)
         setRangeValuePadding(1)
+        setSelectedLayout(1)
     }
     //useEffect để loading xong
     useEffect(() => {
         shopify.loading(false);
-    }, []);
+    }, [shopify]);
 
     //trạng thái sidebar
     const [currentView, setCurrentView] = React.useState('default');
@@ -620,7 +637,7 @@ export default function TabsWithTablesExample() {
                                 </div>
                                 <div className="modal-content-aside-config-view-item-label"></div>
                             </div>
-                            <div key={2} onClick={() => handleSelect(2)} className={`modal-content-aside-config-view-item ${selectedLayout === 2 ? 'selected' : ''}`}>
+                            <div key={2}  onClick={() => handleSelect(2)}  className={`modal-content-aside-config-view-item ${selectedLayout === 2 ? 'selected' : ''}`}>
                                 <div className="modal-content-aside-config-view-item-img">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="112" height="82" fill="none" viewBox="0 0 112 82"><path fill="#E6E6E6" d="M8 22.226h19.2v19.2H8z"></path><path fill="#CDCDCD" d="M27.2 22.226h19.2v19.2H27.2z"></path><path fill="#E6E6E6" d="M46.4 22.226h19.2v19.2H46.4z"></path><path fill="#CDCDCD" d="M65.6 22.226h19.2v19.2H65.6z"></path><path fill="#E6E6E6" d="M84.8 22.226H104v19.2H84.8z"></path><path fill="#CDCDCD" d="M8 41.426h19.2v19.2H8z"></path><path fill="#E6E6E6" d="M27.2 41.426h19.2v19.2H27.2z"></path><path fill="#CDCDCD" d="M46.4 41.426h19.2v19.2H46.4z"></path><path fill="#E6E6E6" d="M65.6 41.426h19.2v19.2H65.6z"></path><path fill="#CDCDCD" d="M84.8 41.426H104v19.2H84.8z"></path></svg>
                                 </div>
@@ -756,7 +773,7 @@ export default function TabsWithTablesExample() {
                             <svg xmlns="http://www.w3.org/2000/svg" width="68" height="12" viewBox="0 0 68 12" fill="none"><ellipse cx="7.43835" cy="6" rx="6.6361" ry="6" fill="#FFE5E6"></ellipse><ellipse cx="34.5362" cy="6" rx="6.08309" ry="6" fill="#FFF0BF"></ellipse><ellipse cx="61.0802" cy="6" rx="6.08309" ry="6" fill="#C2F2D8"></ellipse></svg>
                         </div>
                         <Scrollable style={{ height: '550px' }}>
-                            {renderGrid(rangeValueRow, rangeValueColumn, rangeValueBorder, rangeValuePadding)}
+                            {renderSelectedLayout(selectedLayout)}
                         </Scrollable>
                     </div>
                 </>
@@ -775,12 +792,99 @@ export default function TabsWithTablesExample() {
                 return
         }
     }
+    const renderSelectedLayout = (selectedLayout) => {
+        switch (selectedLayout) {
+            case 1:
+                return (
+                    <div>
+                        {renderGrid(rangeValueRow, rangeValueColumn, rangeValueBorder, rangeValuePadding)}
+                    </div>
+                );
+            case 2:
+                return (
+                    <div>
+                        {renderGrid(rangeValueRow, rangeValueColumn, 0, 0)}
+                    </div>
+                );
+            case 3:
+                return (
+                    <div class="grid-container">
+                        {posts.media.data.map((image, index) => (
+                            <img className={`item${index}`} key={index} src={image.media_url} alt={image.alt} style={{ width: "100%" }} />
+                        ))}
+                    </div>
+                );
+            case 4:
+                return (
+                    <div className="container">
+                        {posts.media.data.map((image, index) => (
+                            <div
+                                key={index}
+                                className="mySlides"
+                                style={{ display: slideIndex === index + 1 ? "block" : "none" }}
+                            >
+                                <img src={image.media_url} alt={image.alt} style={{ width: "100%" }} />
+                            </div>
+                        ))}
+                        <a className="prev" onClick={() => plusSlides(-1)}>
+                            ❮
+                        </a>
+                        <a className="next" onClick={() => plusSlides(1)}>
+                            ❯
+                        </a>
+                        <div className="row">
+                            {posts.media.data.map((thumbnail, index) => (
+                                <div key={index} className="column">
+                                    <img
+                                        className={`demo cursor ${slideIndex === index + 1 ? "active" : ""}`}
+                                        src={thumbnail.media_url}
+                                        alt={thumbnail.alt}
+                                        style={{ width: "100%" }}
+                                        onClick={() => currentSlide(index + 1)}
+                                    />
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                );
+            case 5:
+                return (
+                    <div class="grid-container-grid">
+                        {posts.media.data.map((image, index) => (
+                            <img className={`item-grid${index}`} key={index} src={image.media_url} alt={image.alt} style={{ width: "100%" }} />
+                        ))}
+                    </div>
+                );
+            case 6:
+                return (
+                    <div class="grid-container-highlight-center">
+                        {posts.media.data.map((image, index) => (
+                            <img className={`item-center${index}`} key={index} src={image.media_url} alt={image.alt} style={{ width: "100%" }} />
+                        ))}
+                    </div>
+                );
+            default:
+                return (
+                    <div>
+                        <h4>No Layout Selected</h4>
+                        <p>Please select a layout to view its content.</p>
+                    </div>
+                );
+        }
+    }
 
-    const [selectedLayout, setSelectedLayout] = useState(null);
-
-    const handleSelect = (index) => {
-        setSelectedLayout(index);
+    //Xử lý layout Slider widget
+    const [slideIndex, setSlideIndex] = useState(1);
+    const plusSlides = (n) => {
+        setSlideIndex((prev) => {
+            const newIndex = prev + n;
+            if (newIndex > posts.media.data.length) return 1;
+            if (newIndex < 1) return posts.media.data.length;
+            return newIndex;
+        });
     };
+
+    const currentSlide = (n) => setSlideIndex(n);
 
     //Hàm sử lý giao diện khi Setting layout
     const renderSideTabContent = () => {
@@ -1028,7 +1132,8 @@ export default function TabsWithTablesExample() {
             grid.push(row);
         }
         return grid;
-    };
+    }
+
 
     //Xử lý stepper
     const [activeStep1, setActiveStep1] = useState(0); // Step mặc định
@@ -1081,7 +1186,7 @@ export default function TabsWithTablesExample() {
 
     return (
         <>
-            <Page fullWidth title="All widget" primaryAction={<Button variant="primary" onClick={() => { setActiveStep1(0); shopify.modal.show('my-modal'); emptyForm(); navigate('?new') }}>Create widget</Button>}>
+            <Page fullWidth title="All widget" primaryAction={<Button icon={PlusIcon} variant="primary" onClick={() => { setActiveStep1(0); shopify.modal.show('my-modal'); emptyForm(); navigate('?new') }}>Create widget</Button>}>
                 <LegacyCard>
                     <Tabs tabs={tabs} selected={selected} onSelect={handleTabChange} >
                         <LegacyCard.Section>

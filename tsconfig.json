@@ -1,5 +1,5 @@
 {
-  "include": ["env.d.ts", "**/*.ts", "**/*.tsx", "app/routes/app.number.jsx", "app/routes/app.new2.jsx"],
+  "include": ["env.d.ts", "**/*.ts", "**/*.tsx", "app/routes/app.number.jsx", "app/routes/app.new2.jsx", "app/entry.client.jsx"],
   "compilerOptions": {
     "lib": ["DOM", "DOM.Iterable", "ES2022"],
     "strict": true,

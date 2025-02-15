@@ -1,7 +1,7 @@
 # Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
 
 client_id = "de4349f3cb6d7c794a2536266a976f22"
-application_url = "https://system-johnson-serbia-began.trycloudflare.com"
+application_url = "https://wing-cement-uri-netscape.trycloudflare.com"
 embedded = true
 name = "test-theme"
 handle = "test-theme-28"
@@ -19,9 +19,9 @@ scopes = "write_products"
 
 [auth]
 redirect_urls = [
-  "https://system-johnson-serbia-began.trycloudflare.com/auth/callback",
-  "https://system-johnson-serbia-began.trycloudflare.com/auth/shopify/callback",
-  "https://system-johnson-serbia-began.trycloudflare.com/api/auth/callback"
+  "https://wing-cement-uri-netscape.trycloudflare.com/auth/callback",
+  "https://wing-cement-uri-netscape.trycloudflare.com/auth/shopify/callback",
+  "https://wing-cement-uri-netscape.trycloudflare.com/api/auth/callback"
 ]
 
 [pos]

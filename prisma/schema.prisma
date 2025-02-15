@@ -46,6 +46,7 @@ model Source {
 model Gallery {
   id             Int     @id @default(autoincrement())
   taggerProducts String
+  galleyName     String
   sourceId      Int
   source        Source @relation("Gallery", fields: [sourceId], references: [id])
   widgetSetting WidgetSetting[] @relation("Setting")

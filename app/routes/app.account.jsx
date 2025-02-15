@@ -20,12 +20,12 @@ export async function action({ request }) {
     const accountId = parseInt(formData?.id?.toString() ?? "1", 10);
     try {
         //Xóa các setting liên quan đến tài khoản
-        const accountSettings = await db.widgetSetting.deleteMany({
-            where: {
-                accountId: accountId
-            }
-        })
-        console.log('accountSettings: ', accountSettings);
+        // const accountSettings = await db.widgetSetting.deleteMany({
+        //     where: {
+        //         accountId: accountId
+        //     }
+        // })
+        //console.log('accountSettings: ', accountSettings);
         //xóa tài khoản
         const accountDelete = await db.account.delete({
             where: {

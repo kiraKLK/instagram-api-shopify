@@ -53,7 +53,7 @@ export async function loader({ request }) {
     const accountName = account?.accountName
 
     const widget = await db.widgetSetting.findMany({
-        where: { accountId: account?.id }
+        
     })
     if (accessToken) {
         try {
@@ -128,10 +128,10 @@ export const action = async ({ request, params }) => {
         if (actionType === "create") {
 
             //Tìm account ứng với setting cần lưu
-            const accountForSetting = await db.account.findFirst({
-                where: { accountName: accountName },
-            });
-            // console.log('accountForSetting: ', accountForSetting);
+            // const galleryForSetting = await db.gallery.findFirst({
+            //     where: { galleryName: gallary },
+            // });
+    
 
             //tìm xem có bản ghi nào trước đó trong database chưa
             const existingSetting = await db.widgetSetting.findFirst({
@@ -280,7 +280,7 @@ export const action = async ({ request, params }) => {
                         numberOfRows: numberOfRows,
                         paddingImg: paddingImg,
                         borderImg: borderImg,
-                        accountId: accountForSetting.id,
+                        galleryId: 1,
                         widgetLayout: widgetLayout
                     },
                 });

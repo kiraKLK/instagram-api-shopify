@@ -80,7 +80,7 @@ export async function loader({ request }) {
             const data = await responseProducts.json();
             const products = data.data.products
 
-            return json({ posts, products, gallery: gallery.taggerProducts });
+            return json({ posts, products, gallery: gallery?.taggerProducts });
         } catch (error) {
             console.error('Lỗi khi lấy bài viết:', error.response?.data || error.message);
             throw error;
@@ -114,19 +114,21 @@ export const action = async ({ request, params }) => {
             await metafield.save({ update: true })
             console.log("Metafield save successfull!", metafield)
 
-            const existingGallery = await db.gallery.upsert({
+            await db.gallery.update({
                 where: { id: 1 }, // 🔹 Thay id này bằng giá trị phù hợp (ví dụ: postId, userId, ...)
-                update: {
+                data: {
                     taggerProducts: JSON.stringify({
                         taggedProducts
                     }), // Cập nhật dữ liệu nếu tồn tại
+                    galleyName:"Gallery 1",
+                    sourceId: 1,
                 },
-                create: {
-                    taggerProducts: JSON.stringify({
-                        taggedProducts
-                    }), // Tạo mới nếu không tồn tại
-                    accountId: 10, // 🔹 Giá trị này cần thay đổi theo dữ liệu thực tế
-                },
+                // create: {
+                //     taggerProducts: JSON.stringify({
+                //         taggedProducts
+                //     }), // Tạo mới nếu không tồn tại
+                //     accountId: 10, // 🔹 Giá trị này cần thay đổi theo dữ liệu thực tế
+                // },
             });
             return json({
                 success: true,
@@ -149,6 +151,7 @@ export default function Source() {
         shopify.loading(false)
     }, [shopify]);
     const fetcher = useFetcher()
+    
     const handleSave = async () => {
         try {
             // Thu thập dữ liệu từ các trạng thái
@@ -168,6 +171,7 @@ export default function Source() {
             console.log();
         }
     }
+
     useEffect(() => {
         if (fetcher.state === "loading") {
             // Hiển thị toast khi lưu và load dữ liệu thành công
@@ -182,7 +186,7 @@ export default function Source() {
     const loaderData = useLoaderData(); //Lấy data từ loader
     const posts = loaderData?.posts || [] // Data bài viết instagram
     const productsLoader = loaderData?.products || [] // Data tất cả sản phẩm trong store
-    const gallery = JSON.parse(loaderData?.gallery) || {}
+    const gallery = loaderData?.gallery ? JSON.parse(loaderData.gallery) : {}
     const [currentPost, setCurrentPost] = useState(null) //Lưu bài viết hiện tại để hiển thị lên modal
     const [taggedProducts, setTaggedProducts] = useState(gallery?.taggedProducts || {}); //Lưu đối tượng chứa thông tin tag theo từng post
     console.log('taggedProducts: ', taggedProducts);

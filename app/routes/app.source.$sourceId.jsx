@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import {
     InlineGrid,
     Text,
@@ -17,22 +17,25 @@ import {
     Checkbox,
     Modal,
     LegacyCard,
-    EmptyState
+    EmptyState,
+    Icon,
+    AppProvider
 } from '@shopify/polaris';
 import {
+    SearchIcon
 } from '@shopify/polaris-icons';
+import { Modal as Modal2, TitleBar, useAppBridge, SaveBar } from '@shopify/app-bridge-react';
 import { json } from "@remix-run/node";
 import styles from '../style/style.css?url'
 import { useLoaderData } from "@remix-run/react";
 import axios from 'axios';
 import db from "../db.server";
 import { authenticate } from "../shopify.server";
-import { useAppBridge } from '@shopify/app-bridge-react';
 
 export const links = () => [{ rel: "stylesheet", href: styles }];
 
 export async function loader({ request }) {
-    const { session } = await authenticate.admin(request);
+    const { admin, session } = await authenticate.admin(request);
     const widget = await db.account.findFirst({
         where: { sessionId: session.id },
     })
@@ -47,12 +50,43 @@ export async function loader({ request }) {
             });
 
             const posts = response?.data;
-            return json({ posts });
+            const responseProducts = await admin.graphql(
+                `#graphql
+                query {
+                    products (first: 50, query: "status:active AND published_status:published") {
+                        nodes {
+                        id
+                        title
+                        images(first: 1) {
+                            edges {
+                            node {
+                                src
+                            }
+                            }
+                        }
+                        variants(first: 1) {
+                            edges {
+                            node {
+                                price
+                            }
+                            }
+                        }
+                        }
+                    }
+                }`,
+            );
+
+            const data = await responseProducts.json();
+            const products = data.data.products
+            console.log('data: ', data.data.products);
+            return json({ posts, products });
         } catch (error) {
             console.error('Lỗi khi lấy bài viết:', error.response?.data || error.message);
             throw error;
         }
     }
+
+
 
     return null;
 }
@@ -63,8 +97,8 @@ export default function Source() {
         shopify.loading(false)
     }, [shopify]);
 
-    const [active, setActive] = useState(false);
     const [currentPost, setCurrentPost] = useState(null)
+    const [active, setActive] = useState(false);
 
     const handleChange = useCallback((post) => {
         setActive(!active)
@@ -73,6 +107,7 @@ export default function Source() {
 
     const loaderData = useLoaderData();
     const posts = loaderData?.posts || []
+    const productsLoader = loaderData?.products || []
 
     const [textFieldValue, setTextFieldValue] = useState(posts?.username);
 
@@ -189,6 +224,45 @@ export default function Source() {
         (newChecked) => setChecked(newChecked),
         [],
     )
+
+    const [selectedProducts, setSelectedProducts] = useState([]);
+    const [productModalOpen, setProductModalOpen] = useState(false);
+    const [imageClickPosition, setImageClickPosition] = useState(null);
+    const [cursorPosition, setCursorPosition] = useState(null);
+    const [textFieldSearchProducts, setTextFieldSearchProducts] = useState();
+    const handleTextFieldSearchChange = useCallback(
+        (value) => setTextFieldSearchProducts(value),
+        [],
+    );
+
+
+    const handleImageClick = (event) => {
+        const rect = event.target.getBoundingClientRect();
+        const x = event.clientX - rect.left;
+        const y = event.clientY - rect.top;
+        shopify.modal.show('modal-list-producst')
+        setImageClickPosition({ x, y });
+        //setProductModalOpen(true);
+        console.log("Mở modal chọn sản phẩm");
+    };
+
+    const handleMouseMove = (event) => {
+        const rect = event.target.getBoundingClientRect();
+        const x = event.clientX - rect.left;
+        const y = event.clientY - rect.top;
+
+        setCursorPosition({ x, y });
+    };
+
+    const handleMouseLeave = () => {
+        setCursorPosition(null);
+    };
+
+    const handleSelectProduct = (product) => {
+        setSelectedProducts([...selectedProducts, { ...product, position: imageClickPosition }]);
+        setProductModalOpen(false);
+        shopify.modal.hide('modal-list-producst')
+    };
 
     if (!loaderData) {
         return (
@@ -339,62 +413,58 @@ export default function Source() {
                         open={active}
                         onClose={handleChange}
                     >
-                        <Modal.Section style={{ padding: '0' }}>
-
-
-                            <div className='modal'>
-                                <div className='modal-left'>
-                                    <div style={{ backgroundImage: `url(${currentPost.media_url})` }} className="modal-left-media"></div>
-                                </div>
-                                <div className="modal-right">
-                                    <div className="modal-right-infor">
-                                        <BlockStack >
-                                            <div className="modal-right-infor-header">
-                                                <InlineStack gap="400" wrap={false} blockAlign="center">
-                                                    <div style={{ backgroundImage: `url(${posts.profile_picture_url})` }} className="modal-right-infor-header-avatar">
-                                                    </div>
-                                                    <div className="modal-right-infor-header-name">{posts.username}</div>
-                                                </InlineStack>
-                                            </div>
-                                            <div className="modal-right-infor-content">
-                                                <div className="modal-right-infor-content-total-reaction">
-                                                    <Box padding="400" >
-                                                        <InlineStack align='center' gap="600" wrap={false} blockAlign="center">
-                                                            <BlockStack inlineAlign='center'>
-                                                                <Text fontWeight="medium" as="p">
-                                                                    {currentPost.like_count}
-                                                                </Text>
-                                                                <Text tone='subdued' as="p">
-                                                                    Like
-                                                                </Text>
-                                                            </BlockStack>
-                                                            <BlockStack inlineAlign='center'>
-                                                                <Text fontWeight="medium" as="p">
-                                                                    {currentPost.comments_count}
-                                                                </Text>
-                                                                <Text tone='subdued' as="p">
-                                                                    Comment
-                                                                </Text>
-                                                            </BlockStack>
-                                                        </InlineStack>
-                                                    </Box>
-                                                </div>
-                                                <Scrollable style={{ height: "calc(-260px + 100vh)" }} >
-                                                    <div>{currentPost.caption}</div>
-                                                </Scrollable>
-                                            </div>
-                                            <div className="modal-right-infor-footer">
-                                                {formattedDate}
-                                            </div>
-                                        </BlockStack>
-                                    </div>
+                        <div className='modal'>
+                            <div className='modal-left'>
+                                <div style={{ backgroundImage: `url(${currentPost.media_url})` }}  className="modal-left-media">
+                                  
                                 </div>
                             </div>
-
-                        </Modal.Section>
+                            <div className="modal-right">
+                                <div className="modal-right-infor">
+                                    <BlockStack >
+                                        <div className="modal-right-infor-header">
+                                            <InlineStack gap="400" wrap={false} blockAlign="center">
+                                                <div style={{ backgroundImage: `url(${posts.profile_picture_url})` }} className="modal-right-infor-header-avatar">
+                                                </div>
+                                                <div className="modal-right-infor-header-name">{posts.username}</div>
+                                            </InlineStack>
+                                        </div>
+                                        <div className="modal-right-infor-content">
+                                            <div className="modal-right-infor-content-total-reaction">
+                                                <Box padding="400" >
+                                                    <InlineStack align='center' gap="600" wrap={false} blockAlign="center">
+                                                        <BlockStack inlineAlign='center'>
+                                                            <Text fontWeight="medium" as="p">
+                                                                {currentPost.like_count}
+                                                            </Text>
+                                                            <Text tone='subdued' as="p">
+                                                                Like
+                                                            </Text>
+                                                        </BlockStack>
+                                                        <BlockStack inlineAlign='center'>
+                                                            <Text fontWeight="medium" as="p">
+                                                                {currentPost.comments_count}
+                                                            </Text>
+                                                            <Text tone='subdued' as="p">
+                                                                Comment
+                                                            </Text>
+                                                        </BlockStack>
+                                                    </InlineStack>
+                                                </Box>
+                                            </div>
+                                            <Scrollable style={{ height: "calc(-260px + 100vh)" }} >
+                                                <div>{currentPost.caption}</div>
+                                            </Scrollable>
+                                        </div>
+                                        <div className="modal-right-infor-footer">
+                                            {formattedDate}
+                                        </div>
+                                    </BlockStack>
+                                </div>
+                            </div>
+                        </div>
                     </Modal>
                 }
-
 
                 {/* </Frame> */}
             </>

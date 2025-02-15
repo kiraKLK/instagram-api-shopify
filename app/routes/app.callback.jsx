@@ -51,6 +51,21 @@ export async function loader({ request }) {
 
     const longLivedAccessToken = longLivedTokenResponse.data.access_token;
     console.log('Long-lived Access Token: ', longLivedAccessToken);
+    let posts = null
+    try {
+      const response = await axios.get('https://graph.instagram.com/me', {
+        params: {
+          fields: 'username',
+          access_token: longLivedAccessToken
+        }
+      });
+
+      posts = response?.data;
+
+    } catch (error) {
+      console.error('Lỗi khi lấy bài viết:', error.response?.data || error.message);
+      throw error;
+    }
 
     // Bước 2: Lưu accessToken vào metafiels
     const { admin, session } = await authenticate.admin(request);
@@ -72,32 +87,15 @@ export async function loader({ request }) {
 
     const cookieHeader = await accessTokenCookie.serialize(longLivedAccessToken); //Lưu vào cookie
 
-    //tìm xem có bản ghi nào trước đó trong database chưa
-    const existingAccount = await db.account.findFirst({
-      where: { sessionId: session.id },
+    //Nếu không tồn tại, tạo mới
+    await db.account.create({
+      data: {
+        sessionId: session.id,
+        accessToken: longLivedAccessToken,
+        accountName: posts.username
+      },
     });
-    //Sử dụng upsert để tạo mới hoặc cập nhật dựa trên sessionId
-    if (existingAccount) {
-      // Nếu đã tồn tại, cập nhật bản ghi hiện tại
-      const updatedAccount = await db.account.update({
-        where: { id: existingAccount.id }, // Cập nhật bằng id (unique)
-        data: {
-          accessToken: longLivedAccessToken,
-          accountName: "tungvan2024"
-        },
-      });
-      console.log("Update successfull!", updatedAccount);
-    } else {
-      //Nếu không tồn tại, tạo mới
-      const newAccount = await db.account.create({
-        data: {
-          sessionId: session.id,
-          accessToken: longLivedAccessToken,
-          accountName:'tungvan2024'
-        },
-      });
-      console.log("Create successfull!", newAccount);
-     }
+
     return json(
 
       { longLivedAccessToken },
@@ -115,7 +113,7 @@ export async function loader({ request }) {
 }
 
 export default function CallBack() {
-  
+
   const { apiKey, host } = useOutletContext();
   const config = {
     // The client ID provided for your application in the Partner Dashboard.
@@ -124,7 +122,7 @@ export default function CallBack() {
     host: host,
     forceRedirect: true
   };
-  
+
   const app = createApp(config);
   const redirect = Redirect.create(app);
   redirect.dispatch(Redirect.Action.ADMIN_PATH, {

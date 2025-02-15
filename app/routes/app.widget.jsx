@@ -1,6 +1,6 @@
 /* eslint-disable no-loop-func */
 
-import React, { useState, useCallback, useEffect } from "react";
+import React, { useState, useCallback, useEffect, useRef } from "react";
 import {
     LegacyCard,
     Tabs,
@@ -15,25 +15,27 @@ import {
     InlineStack,
     Box,
     Icon,
-    Layout,
     TextField,
     Select,
     Scrollable,
     Divider,
     RangeSlider,
-    EmptyState,
-    IndexFilters
+    ChoiceList,
+    ColorPicker,
+    AppProvider,
+    Checkbox
 } from "@shopify/polaris";
 
 // import { accessTokenCookie } from "../createCookie";
-import { MenuVerticalIcon, ChevronRightIcon, XIcon, CheckSmallIcon, DesktopIcon, MobileIcon,PlusIcon } from "@shopify/polaris-icons";
+import { MenuVerticalIcon, ChevronRightIcon, XIcon, CheckSmallIcon, DesktopIcon, MobileIcon, PlusIcon, EditIcon, ProfileIcon } from "@shopify/polaris-icons";
 import { Modal, TitleBar, useAppBridge, SaveBar } from '@shopify/app-bridge-react';
 import styles from '../style/style-widget.css?url'
 import axios from 'axios';
 import { json } from "@remix-run/node";
-import { useLoaderData, useSubmit, useNavigate, useSearchParams, useFetcher } from "@remix-run/react";
+import { useLoaderData, useNavigate, useSearchParams, useFetcher } from "@remix-run/react";
 import db from "../db.server";
 import { authenticate } from "../shopify.server";
+import Switch from "../component/switch"
 
 
 
@@ -175,7 +177,7 @@ export const action = async ({ request, params }) => {
                     numberOfRows: numberOfRows,
                     paddingImg: paddingImg,
                     borderImg: borderImg,
-                    widgetLayout:widgetLayout
+                    widgetLayout: widgetLayout
                 };
 
                 // Tìm và cập nhật setting trong mảng
@@ -279,7 +281,7 @@ export const action = async ({ request, params }) => {
                         paddingImg: paddingImg,
                         borderImg: borderImg,
                         accountId: accountForSetting.id,
-                        widgetLayout:widgetLayout
+                        widgetLayout: widgetLayout
                     },
                 });
                 //update 
@@ -485,16 +487,255 @@ export default function TabsWithTablesExample() {
         (value) => setRangeValueBorder(value),
         [],
     );
-    //Xử lý chọn view widget
+    // State để lưu layout hiện tại
     const [selectedLayout, setSelectedLayout] = useState(1);
-    const handleSelect = useCallback(
-        (value) => setSelectedLayout(value),
+
+    // useRef lưu giá trị trước đó
+    const previousValueLayoutWidget = useRef(selectedLayout);
+
+    // Hàm xử lý khi chọn layout mới
+    const handleSelect = useCallback((value) => {
+        previousValueLayoutWidget.current = selectedLayout; // Lưu giá trị cũ trước khi thay đổi
+        setSelectedLayout(value);
+    }, [selectedLayout]);
+
+    // Hàm quay lại giá trị trước đó
+    const undoChangeLayoutWidget = () => {
+        setSelectedLayout(previousValueLayoutWidget.current); // Khôi phục giá trị cũ
+    };
+    //Custom switch
+    const [switchChoiceHeadingTitle, setSwitchChoiceHeadingTitle] = useState(false);
+    const handleSwitchChoiceHeadingTitle = (state) => {
+        setSwitchChoiceHeadingTitle((prev) => !prev)
+    }
+    const [switchChoiceHeadingDesc, setSwitchChoiceHeadingDesc] = useState(false);
+    const handleSwitchChoiceHeadingDesc = (state) => {
+        setSwitchChoiceHeadingDesc((prev) => !prev)
+    }
+    //Xử lý hiển thị header 
+    const [selectedHeadingSetting, setSelectedHeadingSetting] = useState(['none']);
+    const handleChoiceListChange = useCallback(
+        (value) => setSelectedHeadingSetting(value),
         [],
     );
+    //Xử lý lựa chọn open tab
+    const [selectedOpenTab, setSelectedOpenTab] = useState(['hidden']);
+    const handleChangeOpenTab = useCallback((value) => setSelectedOpenTab(value), []);
+    //Toggle thay đổi preview sang shopping và layout
+    const [previewShoping, setPreviewShoping] = useState(true);
+    const handleTogglePreviewShoping = () => {
+        const newState = !previewShoping;
+        setPreviewShoping(newState);
+    };
+    // Hàm renderChildren để tạo nội dung con
+    const renderChildren = useCallback(
+        (isSelected) => {
+            // Trường hợp isSelected và selectedHeadingSetting là "basic"
+            if (isSelected && selectedHeadingSetting.includes("basic")) {
+                return (
+                    <>
+                        <div className="basic-choice-title" style={{ display: "flex", justifyContent: "space-between", marginBlockStart: "16px", alignItems: "center", height: "28px" }}>
+                            <div className="basic-choice-title-wrapper" style={{ display: "flex", gap: "8px" }}>
+                                <Switch initialState={switchChoiceHeadingTitle} onToggle={handleSwitchChoiceHeadingTitle} />
+                                <div className="basic-choice-title-wrapper-name">Enabale Title</div>
+                            </div>
+                            {switchChoiceHeadingTitle && <Button icon={EditIcon}>Edit</Button>}
+                        </div>
+                        <div className="basic-choice-title" style={{ display: "flex", justifyContent: "space-between", marginBlockStart: "16px", marginBlockEnd: '10px', alignItems: "center", height: "28px" }}>
+                            <div className="basic-choice-title-wrapper" style={{ display: "flex", gap: "8px" }}>
+                                <Switch initialState={switchChoiceHeadingDesc} onToggle={handleSwitchChoiceHeadingDesc} />
+                                <div className="basic-choice-title-wrapper-name">Enable Description</div>
+                            </div>
+                            {switchChoiceHeadingDesc && <Button icon={EditIcon}>Edit</Button>}
+                        </div>
+                    </>
+                );
+            }
+
+            // Trường hợp isSelected và selectedHeadingSetting là "account"
+            if (isSelected && selectedHeadingSetting.includes("account")) {
+                return (
+                    <>
+                        <div style={{ marginBlockStart: "10px" }}>
+                            <Select
+                                options={[
+                                    {
+                                        label: 'Tungvan2024',
+                                        value: 'Decrease',
+                                        prefix: <Icon source={ProfileIcon} />,
+                                    },
+                                ]}
+                                onChange={handleSelectChange}
+                                value={selected}
+                            />
+                        </div>
+                        <div className="basic-choice-title" style={{ display: "flex", justifyContent: "space-between", marginBlockStart: "16px" }}>
+                            <div className="basic-choice-title-wrapper" style={{ display: "flex", gap: "8px" }}>
+                                <Switch initialState={false} onToggle={{}} />
+                                <div className="basic-choice-title-wrapper-name">Enable “Follow” button</div>
+                            </div>
+                            <Button icon={EditIcon}>Edit</Button>
+                        </div>
+                    </>
+                );
+            }
+        },
+        [selectedHeadingSetting, switchChoiceHeadingDesc, switchChoiceHeadingTitle]
+    );
+
+    //Color
+
+    function hsbToRgb(h, s, b) {
+        const chroma = b * s; // Độ bão hòa ảnh hưởng đến độ sáng
+        const x = chroma * (1 - Math.abs((h / 60) % 2 - 1));
+        const m = b - chroma;
+
+        let r = 0, g = 0, b_ = 0;
+
+        if (h >= 0 && h < 60) {
+            r = chroma; g = x; b_ = 0;
+        } else if (h >= 60 && h < 120) {
+            r = x; g = chroma; b_ = 0;
+        } else if (h >= 120 && h < 180) {
+            r = 0; g = chroma; b_ = x;
+        } else if (h >= 180 && h < 240) {
+            r = 0; g = x; b_ = chroma;
+        } else if (h >= 240 && h < 300) {
+            r = x; g = 0; b_ = chroma;
+        } else if (h >= 300 && h < 360) {
+            r = chroma; g = 0; b_ = x;
+        }
+
+        // Cộng thêm m để đưa về thang [0, 1]
+        r = Math.round((r + m) * 255);
+        g = Math.round((g + m) * 255);
+        b_ = Math.round((b_ + m) * 255);
+
+        return { r, g, b: b_ };
+    }
+    function rgbToHex(r, g, b) {
+        return `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`;
+    }
+    function alphaToHex(alpha) {
+        return Math.round(alpha * 255).toString(16).padStart(2, '0');
+    }
+    function hsbToHex(h, s, b, alpha = 1) {
+        // Chuyển đổi HSB sang RGB
+        const { r, g, b: blue } = hsbToRgb(h, s, b);
+
+        // Chuyển đổi RGB sang HEX
+        const hex = rgbToHex(r, g, blue);
+
+        // Nếu alpha được cung cấp, thêm nó vào cuối HEX
+        if (alpha !== 1) {
+            return hex + alphaToHex(alpha);
+        }
+
+        return hex;
+    }
+    //Color Hotspot color
+    const [colorHotspotHover, setColorHotspotHover] = useState({
+        hue: 120,
+        brightness: 1,
+        saturation: 1,
+        alpha: 0.7,
+    });
+    const [valueHotspotHover, setValueHotspotHover] = useState();
+    const handleChangeInputValueHotspotHover = useCallback(
+        (newValue) => setValueHotspotHover(newValue),
+        [],
+    );
+    const [valueHotspotHoverAlpha, setValueHotspotHoverAlpha] = useState(
+        Math.round(colorHotspotHover.alpha * 100) // Chuyển alpha thành %
+    );
+
+    // Cập nhật giá trị alpha dựa trên giá trị nhập vào (dưới dạng phần trăm)
+    const handleChangeInputValueHotspotHoverAlpha = useCallback(
+        (newValue) => {
+            // Nếu người dùng xóa hết nội dung, đặt giá trị về 0
+            if (newValue === "") {
+                setValueHotspotHoverAlpha(0);
+                setColorHotspotHover((prev) => ({
+                    ...prev,
+                    alpha: 0, // Alpha bằng 0
+                }));
+                return;
+            }
+
+            // Chuyển đổi giá trị nhập thành số
+            const numericValue = parseFloat(newValue);
+
+            // Nếu giá trị vượt quá 100, giới hạn nó ở 100
+            const clampedValue = Math.min(Math.max(numericValue, 0), 100);
+
+            // Cập nhật trạng thái
+            setValueHotspotHoverAlpha(clampedValue);
+            setColorHotspotHover((prev) => ({
+                ...prev,
+                alpha: clampedValue / 100, // Chuyển đổi % thành giá trị alpha (0–1)
+            }));
+        },
+        []
+    );
+    const [popoverActiveHotspotHover, setPopoverActiveHotspotHover] = useState(false);
+    const togglePopoverActiveHotspotHover = useCallback(
+        () => setPopoverActiveHotspotHover((popoverActive) => !popoverActive),
+        [],
+    );
+    // Color Hotspot Hover
+    const [colorHotspotColor, setColorHotspotColor] = useState({
+        hue: 120,
+        brightness: 1,
+        saturation: 1,
+        alpha: 0.7,
+    });
+    const [valueHotspotColor, setValueHotspotColor] = useState();
+    const handleChangeInputValueColor = useCallback(
+        (newValue) => setValueHotspotColor(newValue),
+        [],
+    );
+    const [popoverActiveHotspotColor, setPopoverActiveHotspotColor] = useState(false);
+    const togglePopoverActiveHotspotColor = useCallback(
+        () => setPopoverActiveHotspotColor((popoverActive) => !popoverActive),
+        [],
+    );
+    const [checkedAlpha, setCheckedAlpha] = useState(false);
+    const handleChangeCheckedAlpha = useCallback(
+        (newChecked) => setCheckedAlpha(newChecked),
+        [],
+    );
+    // Cập nhật giá trị alpha khi trạng thái `checkedAlpha` thay đổi
+    useEffect(() => {
+        setColorHotspotHover((prev) => ({
+            ...prev,
+            alpha: checkedAlpha ? 0 : 1, // Alpha bằng 0 nếu checkedAlpha = true
+        }));
+    }, [checkedAlpha]);
+    // Cập nhật giá trị HEX khi `color` thay đổi
+    useEffect(() => {
+        const hexColor = hsbToHex(
+            colorHotspotColor.hue,
+            colorHotspotColor.saturation,
+            colorHotspotColor.brightness
+        );
+        const hexColorHover = hsbToHex(
+            colorHotspotHover.hue,
+            colorHotspotHover.saturation,
+            colorHotspotHover.brightness,
+            colorHotspotHover.alpha
+        );
+        setValueHotspotColor(hexColor.toUpperCase());
+        setValueHotspotHover(hexColorHover.toUpperCase())
+        setValueHotspotHoverAlpha(Math.round(colorHotspotHover.alpha * 100))
+
+    }, [colorHotspotColor, colorHotspotHover]);
+
+
+
     //Xử lý khi có thay đổi setting
     const isFormChanged = (id) => {
         const formValues = defaultForm(id); // Gọi hàm và lưu kết quả vào biến
-        
+
         return (
             textFieldValue !== formValues.widgetName ||
             selectedSelect !== formValues.gallery ||
@@ -502,21 +743,21 @@ export default function TabsWithTablesExample() {
             rangeValueRow !== formValues.rangeValueRow ||
             rangeValueBorder !== formValues.rangeValueBorder ||
             rangeValuePadding !== formValues.rangeValuePadding ||
-            selectedLayout !== formValues.widgetLayout
+            (selectedLayout !== formValues.widgetLayout && selectedLayout !== 10)
         )
     }
 
     const defaultForm = (index) => (
         {
-        widgetName: widget[index]?.widgetName || '',
-        gallery: widget[index]?.gallary || 'default',
-        rangeValueColumn: widget[index]?.numberOfColumns || 4,
-        rangeValueRow: widget[index]?.numberOfRows || 2,
-        rangeValuePadding: widget[index]?.paddingImg || 0,
-        rangeValueBorder: widget[index]?.borderImg || 1,
-        widgetLayout: widget[index]?.widgetLayout || 1
-        
-    });
+            widgetName: widget[index]?.widgetName || '',
+            gallery: widget[index]?.gallary || 'default',
+            rangeValueColumn: widget[index]?.numberOfColumns || 4,
+            rangeValueRow: widget[index]?.numberOfRows || 2,
+            rangeValuePadding: widget[index]?.paddingImg || 0,
+            rangeValueBorder: widget[index]?.borderImg || 1,
+            widgetLayout: widget[index]?.widgetLayout || 1
+
+        });
     //Kiểm tra thay đổi setting theo từng bản ghi
     useEffect(() => {
         // Chỉ kiểm tra khi dữ liệu đã load xong
@@ -557,6 +798,7 @@ export default function TabsWithTablesExample() {
         setRangeValueBorder(formValues.rangeValueBorder);
         setRangeValuePadding(formValues.rangeValuePadding);
         setSelectedLayout(formValues.widgetLayout)
+        setCurrentView("default")
     };
 
     //hàm làm trống form khi tạo widget mới
@@ -570,6 +812,7 @@ export default function TabsWithTablesExample() {
         setRangeValueBorder(1)
         setRangeValuePadding(1)
         setSelectedLayout(1)
+        setCurrentView("default")
     }
     //useEffect để loading xong
     useEffect(() => {
@@ -637,7 +880,7 @@ export default function TabsWithTablesExample() {
                                 </div>
                                 <div className="modal-content-aside-config-view-item-label"></div>
                             </div>
-                            <div key={2}  onClick={() => handleSelect(2)}  className={`modal-content-aside-config-view-item ${selectedLayout === 2 ? 'selected' : ''}`}>
+                            <div key={2} onClick={() => handleSelect(2)} className={`modal-content-aside-config-view-item ${selectedLayout === 2 ? 'selected' : ''}`}>
                                 <div className="modal-content-aside-config-view-item-img">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="112" height="82" fill="none" viewBox="0 0 112 82"><path fill="#E6E6E6" d="M8 22.226h19.2v19.2H8z"></path><path fill="#CDCDCD" d="M27.2 22.226h19.2v19.2H27.2z"></path><path fill="#E6E6E6" d="M46.4 22.226h19.2v19.2H46.4z"></path><path fill="#CDCDCD" d="M65.6 22.226h19.2v19.2H65.6z"></path><path fill="#E6E6E6" d="M84.8 22.226H104v19.2H84.8z"></path><path fill="#CDCDCD" d="M8 41.426h19.2v19.2H8z"></path><path fill="#E6E6E6" d="M27.2 41.426h19.2v19.2H27.2z"></path><path fill="#CDCDCD" d="M46.4 41.426h19.2v19.2H46.4z"></path><path fill="#E6E6E6" d="M65.6 41.426h19.2v19.2H65.6z"></path><path fill="#CDCDCD" d="M84.8 41.426H104v19.2H84.8z"></path></svg>
                                 </div>
@@ -688,7 +931,7 @@ export default function TabsWithTablesExample() {
                                 />
                             </div>
                         </div>
-                        <div className="widget-setting-item">
+                        <div className="widget-setting-item" onClick={() => setCurrentView('headingSettings')}>
                             <div className="widget-setting-item-label">Heading settings</div>
                             <div>
                                 <Icon
@@ -697,25 +940,7 @@ export default function TabsWithTablesExample() {
                                 />
                             </div>
                         </div>
-                        <div className="widget-setting-item">
-                            <div className="widget-setting-item-label">Item settings</div>
-                            <div>
-                                <Icon
-                                    source={ChevronRightIcon}
-                                    tone="base"
-                                />
-                            </div>
-                        </div>
-                        <div className="widget-setting-item">
-                            <div className="widget-setting-item-label">Popup settings</div>
-                            <div>
-                                <Icon
-                                    source={ChevronRightIcon}
-                                    tone="base"
-                                />
-                            </div>
-                        </div>
-                        <div className="widget-setting-item">
+                        <div className="widget-setting-item" onClick={() => { setCurrentView('shopingSettings'); handleTogglePreviewShoping(); }}>
                             <div className="widget-setting-item-label">Shoppable settings</div>
                             <div>
                                 <Icon
@@ -764,26 +989,162 @@ export default function TabsWithTablesExample() {
                 return
         }
     }
+
+    const renderHeaderSetting = (selectedHeadingSetting) => {
+        if (selectedHeadingSetting.includes("basic")) {
+            return (
+                <>
+                    {switchChoiceHeadingTitle && <div className="preview-feed-title">Follow Us on Instagram</div>}
+                    {switchChoiceHeadingDesc && <div className="preview-feed-desc">Follow us so you'll never miss an update</div>}
+                </>
+            )
+        }
+        if (selectedHeadingSetting.includes("account")) {
+            return (
+                <>
+                    <div className="preview-feed-account">
+                        <div className="preview-feed-account-avatar">
+                            <img className="preview-feed-account-avatar-main" src="https://widget.onecommerce.io/assets/default-avatar-CdrAMLQT.svg" alt="123" />
+                            <img className="preview-feed-account-avatar-instagram-logo" src="https://widget.onecommerce.io/assets/InstagramAvatarIcon-DJZhoqG0.svg" alt="123" />
+                        </div>
+                        <div className="preview-feed-account-detail">
+                            <div className="preview-feed-account-detail-header">
+                                <div className="preview-feed-account-detail-header-name">Tungvan2024</div>
+                                <div className="preview-feed-account-detail-header-button-follow"><span style={{ color: '#FFFF' }}>Follow</span></div>
+                            </div>
+                            <div className="preview-feed-account-detail-number">
+                                <div className="preview-feed-account-detail-number-post"><b>12</b> Post</div>
+                                <div className="preview-feed-account-detail-number-follower"><b>0</b> Follower</div>
+                                <div className="preview-feed-account-detail-number-following"><b>0</b> Fllowing</div>
+                            </div>
+                            <div className="preview-feed-account-detail-account-name">Tungvan2024</div>
+                        </div>
+                    </div>
+                </>
+            )
+        }
+    }
     const getPreviewContent = (chose) => {
         switch (chose) {
             case 0:
-                return <>
-                    <div className="preview-feed-container-desktop">
-                        <div className="preview-feed-bar">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="68" height="12" viewBox="0 0 68 12" fill="none"><ellipse cx="7.43835" cy="6" rx="6.6361" ry="6" fill="#FFE5E6"></ellipse><ellipse cx="34.5362" cy="6" rx="6.08309" ry="6" fill="#FFF0BF"></ellipse><ellipse cx="61.0802" cy="6" rx="6.08309" ry="6" fill="#C2F2D8"></ellipse></svg>
+                return (
+                    <Scrollable style={{ height: 'calc(100vh - 52px)' }}>
+                        <div className="preview-feed-container-desktop">
+                            {previewShoping ? (
+                                <>
+                                    <div className="preview-feed-bar">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="68" height="12" viewBox="0 0 68 12" fill="none">
+                                            <ellipse cx="7.43835" cy="6" rx="6.6361" ry="6" fill="#FFE5E6"></ellipse>
+                                            <ellipse cx="34.5362" cy="6" rx="6.08309" ry="6" fill="#FFF0BF"></ellipse>
+                                            <ellipse cx="61.0802" cy="6" rx="6.08309" ry="6" fill="#C2F2D8"></ellipse>
+                                        </svg>
+                                    </div>
+                                    {renderHeaderSetting(selectedHeadingSetting)}
+                                    {renderSelectedLayout(selectedLayout)}
+                                </>
+                            ) : (
+                                <div className="preview-instagram-popup">
+                                    <div className="preview-instagram-popup-container">
+                                        <div className="preview-instagram-popup-wrapper">
+                                            <div className="preview-instagram-popup-image">
+                                                <img src="https://widget.onecommerce.io/assets/instagram-popup-image-BZzyfB8R.webp" alt="123" />
+                                                <div className="widget-hotspot">
+                                                    <div className="widget-hotspot-item" style={{ top: "35%", right: "73%", background: valueHotspotColor }}>
+                                                        <div className="widget-hotspot-item-popover" style={{ background: valueHotspotHover }}>
+                                                            <div className="widget-hotspot-item-popover-arrow" style={{ borderBottom: `14px solid ${valueHotspotHover}` }}></div>
+                                                            <div style={{ padding: "8px 4px 8px 8px", marginInlineEnd: "16px", borderInlineEnd: "1px solid rgb(255, 255, 255)" }}>
+                                                                <div style={{ whiteSpace: "nowrap" }}>Wall picture Decor AB...</div>
+                                                                <div style={{ whiteSpace: "nowrap" }}>$29.99</div>
+                                                            </div>
+                                                            <div style={{ position: 'absolute', right: '4px' }}>
+                                                                <svg width="4" height="7" viewBox="0 0 4 7" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3.64062 3.71094C3.75781 3.59375 3.75781 3.42969 3.66406 3.3125L0.898438 0.59375C0.78125 0.476562 0.59375 0.476562 0.5 0.59375L0.335938 0.757812C0.21875 0.875 0.21875 1.03906 0.335938 1.15625L2.72656 3.5L0.335938 5.86719C0.21875 5.98438 0.21875 6.14844 0.335938 6.26562L0.5 6.42969C0.59375 6.54688 0.78125 6.54688 0.898438 6.42969L3.64062 3.71094Z" fill="white"></path></svg>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <div className="widget-hotspot-item" style={{ top: "50%", right: "45%", background: valueHotspotColor }}></div>
+                                                    <div className="widget-hotspot-item" style={{ top: "59%", right: "23%", background: valueHotspotColor }}></div>
+                                                    <div className="widget-hotspot-item" style={{ top: "76%", right: "42%", background: valueHotspotColor }}></div>
+                                                    <div className="widget-hotspot-item" style={{ top: "76%", right: "77%", background: valueHotspotColor }}></div>
+                                                </div>
+                                            </div>
+                                            <div className="preview-instagram-popup-detail">
+                                                <div className="preview-instagram-popup-detail-header">
+                                                    <div style={{ display: "flex", alignItems: "center" }}>
+                                                        <img style={{ marginInlineEnd: "10px" }} src="https://widget.onecommerce.io/assets/instagram-popup-avatar-EWb-YXxj.webp" alt="123" />
+                                                        <div style={{ fontWeight: "500" }}>Tungvan2024</div>
+                                                    </div>
+                                                    <div className="instagram-popup-follow-btn">
+                                                        <span style={{ color: "#FFFFFF" }}>Follow</span>
+                                                    </div>
+                                                </div>
+                                                <div class="preview-instagram-popup-detail-content">
+                                                    Go behind the scenes and discover how Smarties became the first global confectionery brand to switch to recyclable paper packaging.
+                                                    A move that goes a long way to achieving our goal of 100% recyclable or reusable packaging by 2025.Visit the link in our bio for the full story.
+                                                </div>
+                                                <div className="preview-instagram-popup-detail-shoppable">
+                                                    <div className="popup-detail-shoppable-item">
+                                                        <img src="https://widget.onecommerce.io/assets/popup-shoppable-thumb-DBW-Qwpl.webp" alt="123" />
+                                                        <div className="popup-detail-shoppable-item-detail">
+                                                            <div className="popup-detail-shoppable-item-detail-title">Wall Picture Decoration Snake ...</div>
+                                                            <div className="popup-detail-shoppable-item-detail-price">$16.05 - 20.05</div>
+                                                            <div className="popup-detail-shoppable-item-detail-action">VIEW DETAIL</div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div className="preview-instagram-popup-detail-footer">
+                                                    <div className="preview-instagram-popup-detail-footer-date">
+                                                        OCTOBER 6, 2019
+                                                        <div className="preview-instagram-popup-detail-footer-text"></div>
+                                                        View on Instagram
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
                         </div>
-                        <Scrollable style={{ height: '550px' }}>
-                            {renderSelectedLayout(selectedLayout)}
-                        </Scrollable>
-                    </div>
-                </>
+                    </Scrollable>
+                );
             case 1:
                 return <>
-                    <Scrollable style={{ height: '550px' }}>
+                    <Scrollable style={{ height: 'calc(100vh - 52px)' }}>
                         <div className="preview-feed-container">
                             <div className="preview-feed-container-mobile">
                                 <img src="https://widget.onecommerce.io/assets/phone-frame-DW58YU6i.svg" alt="" />
-                                <div style={{ height: '100%', overflow: 'hidden auto' }}></div>
+                                <div className="widget-configs-preview-mobile-container">
+                                    <div className="simplebar-scrollable-y" style={{ height: '100%', overflow: "hidden auto" }}>
+                                        <div className="simplebar-wrapper">
+                                            <div className="simplebar-height-auto-observer-wrapper">
+                                                <div className="simplebar-height-auto-observer"></div>
+                                            </div>
+                                            <div className="simplebar-mask">
+                                                <div className="simplebar-offset" style={{ right: '0px', bottom: '0px' }}>
+                                                    <div className="simplebar-content-wrapper">
+                                                        <div className="simplebar-content">
+                                                            <div className="preview-mobile-instagram-feed">
+                                                                <div className="mobile-skeleton-1"></div>
+                                                                <div className="mobile-skeleton">
+                                                                    <svg width="259" height="77" viewBox="0 0 259 77" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="0.525879" width="258" height="77" rx="10" fill="#EFF3FB"></rect><rect x="16.5259" y="16" width="225" height="16" rx="3" fill="#F7FAFF"></rect><rect x="16.5259" y="46" width="179" height="16" rx="3" fill="#F7FAFF"></rect></svg>
+                                                                </div>
+                                                                {switchChoiceHeadingTitle && <div className="preview-feed-title">Follow Us on Instagram</div>}
+                                                                {switchChoiceHeadingDesc && <div className="preview-feed-desc">Follow us so you'll never miss an update</div>}
+                                                                {renderSelectedLayout(selectedLayout)}
+                                                                <div className="mobile-skeleton" style={{ marginBlockStart: '10px' }}>
+                                                                    <svg width="259" height="77" viewBox="0 0 259 77" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="0.525879" width="258" height="77" rx="10" fill="#EFF3FB"></rect><rect x="16.5259" y="16" width="225" height="16" rx="3" fill="#F7FAFF"></rect><rect x="16.5259" y="46" width="179" height="16" rx="3" fill="#F7FAFF"></rect></svg>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div className="simplebar-placeholder"></div>
+                                        </div>
+                                        <div className="simplebar-track simplebar-vertical"></div>
+                                        <div className="simplebar-track simplebar-horizontal"></div>
+                                    </div>
+                                </div>
+
                             </div>
                         </div>
                     </Scrollable>
@@ -865,10 +1226,8 @@ export default function TabsWithTablesExample() {
                 );
             default:
                 return (
-                    <div>
-                        <h4>No Layout Selected</h4>
-                        <p>Please select a layout to view its content.</p>
-                    </div>
+                    <>
+                    </>
                 );
         }
     }
@@ -886,12 +1245,13 @@ export default function TabsWithTablesExample() {
 
     const currentSlide = (n) => setSlideIndex(n);
 
+
     //Hàm sử lý giao diện khi Setting layout
     const renderSideTabContent = () => {
         switch (currentView) {
             case 'layoutSettings':
                 return (
-                    <div>
+                    <div className="layout-setting">
                         <div className="layout-setting-header" style={{ marginBottom: '16px' }}>
                             <Text variant="headingMd" as="h6">
                                 Layout Settings
@@ -978,9 +1338,243 @@ export default function TabsWithTablesExample() {
                                     </p>
                                 }
                             />
+                            <div className="layout-setting-content-custom">
+                                <div className="layout-setting-content-custom-header-margin">
+                                    Margin (px)
+                                </div>
+                                <div className="layout-setting-content-custom-input-margin" style={{ display: "flex", gap: '8px', marginBlockStart: '8px' }}>
+                                    <TextField
+                                        type="number"
+                                        value={textFieldValue}
+                                        onChange={handleTextFieldChange}
+                                        prefix={<img src="https://widget.onecommerce.io/assets/spacing-top-DsZuNDuF.svg" alt="123" />}
+                                    />
+
+                                    <TextField
+                                        type="number"
+                                        value={textFieldValue}
+                                        onChange={handleTextFieldChange}
+                                        prefix={<img src="https://widget.onecommerce.io/assets/spacing-bottom-BDLfXUJd.svg" alt="123" />}
+
+                                    />
+                                </div>
+                                <div className="layout-setting-content-custom-header-margin" style={{ marginBlockStart: '16px' }}>
+                                    Padding (px)
+                                </div>
+                                <div className="layout-setting-content-custom-input-margin" style={{ display: "flex", gap: '8px', marginBlockStart: '8px' }}>
+                                    <TextField
+                                        type="number"
+                                        value={textFieldValue}
+                                        onChange={handleTextFieldChange}
+                                        prefix={<img src="https://widget.onecommerce.io/assets/spacing-top-DsZuNDuF.svg" alt="123" />}
+                                    />
+
+                                    <TextField
+                                        type="number"
+                                        value={textFieldValue}
+                                        onChange={handleTextFieldChange}
+                                        prefix={<img src="https://widget.onecommerce.io/assets/spacing-bottom-BDLfXUJd.svg" alt="123" />}
+
+                                    />
+                                    <TextField
+                                        type="number"
+                                        value={textFieldValue}
+                                        onChange={handleTextFieldChange}
+                                        prefix={<img src="https://widget.onecommerce.io/assets/spacing-left-BkiiymVy.svg" alt="123" />}
+                                    />
+
+                                    <TextField
+                                        type="number"
+                                        value={textFieldValue}
+                                        onChange={handleTextFieldChange}
+                                        prefix={<img src="https://widget.onecommerce.io/assets/spacing-right-C1nB5XYj.svg" alt="123" />}
+
+                                    />
+                                </div>
+
+                            </div>
                         </div>
                     </div>
                 );
+            case 'headingSettings':
+                return (
+                    <>
+                        <div className="layout-setting">
+                            <div className="layout-setting-header" style={{ marginBottom: '16px' }}>
+                                <Text variant="headingMd" as="h6">
+                                    Heading Settings
+                                </Text>
+                                <div onClick={() => setCurrentView('default')} className="layout-setting-header-icon">
+                                    <Icon
+                                        source={XIcon}
+                                        tone="base"
+                                    />
+                                </div>
+                            </div>
+                            <Divider />
+                            <div style={{ marginBlockStart: "16px" }}>
+                                <ChoiceList
+                                    choices={[
+                                        {
+                                            label: 'Basic',
+                                            value: 'basic',
+                                            renderChildren,
+                                        },
+                                        {
+                                            label: 'Choose and show your account information',
+                                            value: 'account',
+                                            renderChildren,
+                                        },
+                                    ]}
+                                    selected={selectedHeadingSetting}
+                                    onChange={handleChoiceListChange}
+                                />
+                            </div>
+                        </div>
+                    </>
+                )
+
+            case 'shopingSettings':
+                return (
+                    <>
+                        <div className="layout-setting">
+                            <div className="layout-setting-header" style={{ marginBottom: '16px' }}>
+                                <Text variant="headingMd" as="h6">
+                                    Shoppable settings
+                                </Text>
+                                <div onClick={() => { setCurrentView('default'); handleTogglePreviewShoping(); }} className="layout-setting-header-icon">
+                                    <Icon
+                                        source={XIcon}
+                                        tone="base"
+                                    />
+                                </div>
+                            </div>
+                            <Divider />
+                            <div className="shoping-setting">
+                                <div className="shoping-setting-section">
+                                    <div className="shoping-setting-section-item">
+                                        <div className="shoping-setting-section-item-label">Hotspot color</div>
+                                        <div className="shoping-setting-section-item-wrapper">
+                                            <div className="color-picker-title">Color</div>
+                                            <AppProvider i18n={{}}>
+                                                <Popover
+                                                    active={popoverActiveHotspotColor}
+                                                    activator={
+                                                        <div className="color-picker-main" style={{ paddingInlineEnd: "8px" }} onClick={togglePopoverActiveHotspotColor}>
+                                                            <div className="color-picker-main-picked">
+                                                                <div className="color-picker-main-picked-color" style={{ background: valueHotspotColor }}></div>
+                                                                <div className="color-picker-main-picked-hex">{valueHotspotColor}</div>
+                                                            </div>
+                                                        </div>
+                                                    }
+                                                    onClose={togglePopoverActiveHotspotColor}
+                                                    autofocusTarget="first-node"
+                                                >
+                                                    <div style={{ padding: "16px" }}>
+                                                        <ColorPicker onChange={setColorHotspotColor} color={colorHotspotColor} />
+                                                        <div style={{ marginBlockStart: "16px" }}>
+                                                            <TextField
+                                                                value={valueHotspotColor}
+                                                                onChange={handleChangeInputValueColor}
+                                                                autoComplete="off"
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                </Popover>
+                                            </AppProvider>
+                                        </div>
+                                    </div>
+                                    <div className="shoping-setting-section-item">
+                                        <div className="shoping-setting-section-item-label">Hotspot hover</div>
+                                        <div className="shoping-setting-section-item-wrapper">
+                                            <div className="color-picker-title">Color</div>
+                                            <AppProvider i18n={{}}>
+                                                <Popover
+                                                    active={popoverActiveHotspotHover}
+                                                    activator={
+                                                        <div className="color-picker-main" onClick={togglePopoverActiveHotspotHover}>
+                                                            <div className="color-picker-main-picked" style={{minWidth:"100px"}}>
+                                                                <div className="color-picker-main-picked-color" style={{ background: valueHotspotHover }}></div>
+                                                                <div className="color-picker-main-picked-hex">{valueHotspotHover}</div>
+                                                            </div>
+                                                            <div className="color-picker-main-picked-alpha">{valueHotspotHoverAlpha}%</div>
+                                                        </div>
+                                                    }
+                                                    onClose={togglePopoverActiveHotspotHover}
+                                                    autofocusTarget="first-node"
+                                                >
+                                                    <div style={{ padding: "16px" }}>
+                                                        <ColorPicker onChange={setColorHotspotHover} color={colorHotspotHover} allowAlpha />
+                                                        <div className="color-picker-input" style={{ marginBlockStart: "16px", display: "flex", maxWidth: "224px" }}>
+                                                            <div className="color-picker-input-hex">
+                                                                <TextField
+                                                                    value={valueHotspotHover}
+                                                                    onChange={handleChangeInputValueHotspotHover}
+                                                                    autoComplete="off"
+
+                                                                />
+                                                            </div>
+                                                            <div className="color-picker-input-alpha" style={{ width: "150px", marginInlineStart: "8px" }}>
+                                                                <TextField
+                                                                    autoSize
+                                                                    suffix={<div>%</div>}
+                                                                    type="number"
+                                                                    value={valueHotspotHoverAlpha} // Giá trị alpha dưới dạng %
+                                                                    onChange={handleChangeInputValueHotspotHoverAlpha}
+                                                                    autoComplete="off"
+                                                                />
+                                                            </div>
+                                                        </div>
+                                                        <div style={{ marginBlockStart: "8px" }}>
+                                                            <Checkbox
+                                                                label="Make transparent"
+                                                                checked={checkedAlpha}
+                                                                onChange={handleChangeCheckedAlpha}
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                </Popover>
+                                            </AppProvider>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="shoping-setting-section">
+                                    <div className="shoping-setting-section-item">
+                                        <div className="shoping-setting-section-item-label">Hotspot link</div>
+                                        <div style={{ marginInlineStart: "8px" }}>
+                                            <ChoiceList
+                                                choices={[
+                                                    { label: 'Open in new tab', value: 'newTab' },
+                                                    { label: 'Open in same tab', value: 'sameTab' },
+                                                ]}
+                                                selected={selectedOpenTab}
+                                                onChange={handleChangeOpenTab}
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="shoping-setting-section-item">
+                                        <div className="shoping-setting-section-item-label">Display product item</div>
+                                        <div style={{ marginInlineStart: "8px" }}>
+                                            <ChoiceList
+                                                choices={[
+                                                    { label: 'Vertical view', value: 'vertical' },
+                                                    { label: 'Horizontal view', value: 'horizontal' },
+                                                ]}
+                                                selected={selectedOpenTab}
+                                                onChange={handleChangeOpenTab}
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="shoping-setting-section">
+                                    <div className="shoping-setting-section-item">
+
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </>
+                )
             default:
                 return (
                     <div>
@@ -1045,7 +1639,7 @@ export default function TabsWithTablesExample() {
         );
 
         return (
-            <IndexTable.Row onClick={() => { setActiveStep1(0); shopify.modal.show('my-modal'); navigate(`?id=${id}`); setCurrentIdWidget(id); defaultForm(id); resetForm(id) }} id={id} key={id} selected={selectedResources.includes(id)} position={index}>
+            <IndexTable.Row onClick={() => { setActiveStep1(0); shopify.modal.show('my-modal'); navigate(`?id=${id}`); setCurrentIdWidget(id); defaultForm(id); resetForm(id); setPreviewShoping(true) }} id={id} key={id} selected={selectedResources.includes(id)} position={index}>
                 <IndexTable.Cell>
                     <Text variant="bodyMd" fontWeight="bold" as="span">
                         {name}
@@ -1191,7 +1785,7 @@ export default function TabsWithTablesExample() {
                     <Tabs tabs={tabs} selected={selected} onSelect={handleTabChange} >
                         <LegacyCard.Section>
                             <IndexTable
-                                // fetcher.state === "submitting"
+                                
                                 resourceName={resourceName}
                                 itemCount={tableData[selected].length}
                                 selectedItemsCount={allResourcesSelected ? "All" : selectedResources.length}
@@ -1227,7 +1821,8 @@ export default function TabsWithTablesExample() {
                     }}></button>
                     <button onClick={() => handleDiscard()}></button>
                 </SaveBar>
-                <div className="modal" style={{ padding: "0 16px" }}>
+
+                <div className="modal-1" style={{ padding: "0 16px" }}>
                     <div className="modal-header" style={{ width: '100%' }}>
                         <InlineStack blockAlign="center" align="space-between" >
                             <Box padding="400">
@@ -1264,83 +1859,77 @@ export default function TabsWithTablesExample() {
                     </div>
 
                     <div className="modal-content">
-                        <Layout>
-                            <Layout.Section variant="oneThird">
-                                <LegacyCard sectioned>
-                                    {currentView === 'default' ? (
-                                        <div className="modal-content-setting">
-                                            <div className="modal-content-setting-header">
-                                                <div className="tab-select-container">
-                                                    {steps2.map((step, index) => (
-                                                        <div
-                                                            key={index}
-                                                            className={`tab-select-item ${activeStep1 === index ? "is-active" : ""}`}
-                                                            onClick={() => {
-                                                                if (textFieldValue === '') {
-                                                                    setShowError(true); // Hiển thị lỗi nếu trường bị bỏ trống
-                                                                    return;
-                                                                } else { setActiveStep1(index); }
-                                                            }}
-                                                        >
-                                                            <div className="tab-select-item-name">
-                                                                <div className="tab-select-item-icon">
-                                                                    {activeStep1 > index ? (
-                                                                        <Icon source={CheckSmallIcon} tone="base" />
-                                                                    ) : (
-                                                                        index + 1
-                                                                    )}
-                                                                </div>
-                                                                {step.title}
+                        <div className="configs-page-content-main-aside">
+                            <div className="configs-page-content-main-aside-inside">
+                                {currentView === 'default' ? (
+                                    <div className="modal-content-setting">
+                                        <div className="modal-content-setting-header">
+                                            <div className="tab-select-container">
+                                                {steps2.map((step, index) => (
+                                                    <div
+                                                        key={index}
+                                                        className={`tab-select-item ${activeStep1 === index ? "is-active" : ""}`}
+                                                        onClick={() => {
+                                                            if (textFieldValue === '') {
+                                                                setShowError(true); // Hiển thị lỗi nếu trường bị bỏ trống
+                                                                return;
+                                                            } else { setActiveStep1(index); }
+                                                        }}
+                                                    >
+                                                        <div className="tab-select-item-name">
+                                                            <div className="tab-select-item-icon">
+                                                                {activeStep1 > index ? (
+                                                                    <Icon source={CheckSmallIcon} tone="base" />
+                                                                ) : (
+                                                                    index + 1
+                                                                )}
                                                             </div>
+                                                            {step.title}
                                                         </div>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                            <Divider />
-                                            <Scrollable style={{ height: '480.4px' }}>
-                                                {getStepContent(activeStep1)}
-                                            </Scrollable>
-
-                                            <div className="modal-content-setting-footer">
-                                                <div className="modal-content-setting-footer-prev">
-                                                    {/* Ẩn nút Back nếu activeStep = 0 */}
-                                                    {activeStep1 > 0 && activeStep1 === 1 && (
-                                                        <Button onClick={handleBack1}>Back</Button>
-                                                    )}
-                                                </div>
-                                                <div className="modal-content-setting-footer-next">
-                                                    {/* Thay đổi nội dung nút dựa trên activeStep */}
-                                                    {activeStep1 === 1 ? (
-                                                        <Button loading={fetcher.state === "submitting"} disabled={isLoaded} onClick={() => handleSave(modalId)} variant="primary">
-                                                            Save
-                                                        </Button>
-                                                    ) : activeStep1 === 2 ? (
-                                                        <Button variant="primary" onClick={() => shopify.modal.show('modal-confirm')}>
-                                                            Done
-                                                        </Button>
-                                                    ) : (
-                                                        <Button variant="primary" onClick={handleNext1}>
-                                                            Next
-                                                        </Button>
-                                                    )}
-                                                </div>
+                                                    </div>
+                                                ))}
                                             </div>
                                         </div>
-                                    ) : (
-                                        renderSideTabContent()
-                                    )}
 
-                                </LegacyCard>
-                            </Layout.Section>
+                                        <Scrollable style={{ height: 'calc(100vh - 167px)' }}>
+                                            {getStepContent(activeStep1)}
+                                        </Scrollable>
 
-                            <Layout.Section >
-                                <LegacyCard sectioned>
-                                    <div className="preview-feed">
-                                        {getPreviewContent(activeStepPreview)}
+                                        <div className="modal-content-setting-footer">
+                                            <div className="modal-content-setting-footer-prev">
+                                                {/* Ẩn nút Back nếu activeStep = 0 */}
+                                                {activeStep1 > 0 && activeStep1 === 1 && (
+                                                    <Button onClick={handleBack1}>Back</Button>
+                                                )}
+                                            </div>
+                                            <div className="modal-content-setting-footer-next">
+                                                {/* Thay đổi nội dung nút dựa trên activeStep */}
+                                                {activeStep1 === 1 ? (
+                                                    <Button loading={fetcher.state === "submitting"} disabled={isLoaded} onClick={() => handleSave(modalId)} variant="primary">
+                                                        Save
+                                                    </Button>
+                                                ) : activeStep1 === 2 ? (
+                                                    <Button variant="primary" onClick={() => shopify.modal.show('modal-confirm')}>
+                                                        Done
+                                                    </Button>
+                                                ) : (
+                                                    <Button variant="primary" onClick={handleNext1}>
+                                                        Next
+                                                    </Button>
+                                                )}
+                                            </div>
+                                        </div>
                                     </div>
-                                </LegacyCard>
-                            </Layout.Section>
-                        </Layout>
+                                ) : (
+                                    renderSideTabContent()
+                                )}
+                            </div>
+                        </div>
+
+                        <div className="preview-feed">
+                            {getPreviewContent(activeStepPreview)}
+                        </div>
+
                     </div>
                 </div>
             </Modal>
@@ -1360,8 +1949,8 @@ export default function TabsWithTablesExample() {
                     <p>This can't be undone.</p>
                 </Box>
                 <TitleBar title="Delete selected widget(s)?">
-                    <button loading={fetcher.state === "submitting" && 'true'} onClick={() => { handleDeleteSetting(selectedResources); clearSelection() }} tone="critical" variant="primary">Confirm</button>
-                    <button onClick={() => shopify.modal.hide('modal-confirm-delete')}>Cancel</button>
+                    <button loading={(fetcher.state === "submitting") ? ("true") : undefined} onClick={() => { handleDeleteSetting(selectedResources); clearSelection() }} tone="critical" variant="primary">Confirm</button>
+                    <button disabled={false} onClick={() => shopify.modal.hide('modal-confirm-delete')}>Cancel</button>
                 </TitleBar>
             </Modal>
         </>

@@ -1,6 +1,7 @@
 {% assign access_token = shop.metafields.instagram.access_token.value %}
 {% assign setting = shop.metafields.instagram.setting.value %}
 {% assign current_setting = shop.metafields.instagram.current_setting.value %}
+{% assign gallery = shop.metafields.instagram.gallery.value %}
 {% assign is_design_mode = request.design_mode %}
 
 {% if is_design_mode %}
@@ -669,13 +670,13 @@
     </style>
     <script>
       document.addEventListener('DOMContentLoaded', function () {
-          const row = document.getElementById('row');
-          const next = document.getElementById('next');
-          const prev = document.getElementById('prev');
-          row.style.display = 'block';
-          next.style.display = 'block';
-          prev.style.display = 'block';
-          showFirstSlides(slideIndex);
+        const row = document.getElementById('row');
+        const next = document.getElementById('next');
+        const prev = document.getElementById('prev');
+        row.style.display = 'block';
+        next.style.display = 'block';
+        prev.style.display = 'block';
+        showFirstSlides(slideIndex);
       });
     </script>
   {% when 5 %}
@@ -712,9 +713,8 @@
         cursor: pointer;
       }
       .instagram-image0 {
-        grid-area:  1 / 3 / 3 / 5;
+        grid-area: 1 / 3 / 3 / 5;
       }
-     
     </style>
 {% endcase %}
 
@@ -796,8 +796,17 @@
 <!-- CSS Modal -->
 <style>
   /* Modal styles */
+  /* Modal styles */
+  .hotspot-popover-content {
+    padding: 8px 4px 8px 8px;
+  }
+
+  .hotspot-popover-redirect {
+    display: flex;
+    align-items: center;
+  }
+
   .modal {
-    display: block;
     position: fixed;
     z-index: 1000;
     left: 0;
@@ -809,27 +818,74 @@
 
   .modal-content {
     position: relative;
-    margin: 35px 10% 50px;
+    margin: 50px 10% 50px;
     width: 80%;
     max-width: 1200px;
     background: #fff;
+    border-radius: 20px;
     display: flex;
     height: calc(100vh - 100px);
   }
 
   .modal-content-left {
-    /* background-color: rgba(48, 48, 48, 1); */
+    border-top-left-radius: 15px;
+    border-bottom-left-radius: 15px;
+    flex: 1;
+    height: 100%;
     width: 100%;
-    background-color: currentColor;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    background-color: #252627;
+  }
+
+  .modal-content-left-wrapper {
+    position: relative;
+    height: fit-content;
+    max-height: 100%;
+    display: flex;
   }
 
   .modal-content-left-img {
-    background-size: contain;
-    background-position: center center;
-    display: flex;
-    background-repeat: no-repeat;
+    object-fit: contain;
+    width: 100%;
+    height: fit-content;
+  }
+
+  .dot {
+    position: absolute;
+    width: 13px;
+    height: 13px;
+    border-radius: 999px;
+    background-color: #fff;
+    transform: translate(-50%, -50%);
+    cursor: pointer;
+    z-index: 10;
+    transition: all 0.1slinear;
+    box-shadow: 0 0 0 1px hsla(0, 0%, 100%, 0.5);
+    top: 28.3404%;
+    left: 52.9787%;
+    display: block;
+  }
+
+  .dot:hover {
+    box-shadow: 0 0 0 8px hsla(0, 0%, 100%, 0.5);
+  }
+  .dot-active{
+    box-shadow: 0 0 0 8px hsla(0, 0%, 100%, 0.5);
+  }
+
+  .dot::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
     width: 100%;
     height: 100%;
+    border-radius: 50%;
+    transform: translate(-50%, -50%) scale(3.5);
   }
 
   .modal-content-right {
@@ -865,6 +921,7 @@
     align-items: center;
     justify-content: center;
     margin-right: 10px;
+    background-image: url(https://img.freepik.com/free-vector/instagram-background-gradient-colors_23-2147819865.jpg?semt=ais_hybrid);
     padding: 2px;
     flex: 0 0 40px;
     max-width: 40px;
@@ -904,12 +961,12 @@
     border: none;
     display: inline-flex;
     align-items: center;
-    cursor: pointer;
   }
 
   .modal-content-right-body {
-    height: calc(-220px + 100vh);
+    height: calc(-260px + 100vh);
     position: relative;
+    height: 100%;
     overflow: hidden;
     border-top: 1px solid #efefef;
     font-style: normal;
@@ -919,25 +976,36 @@
   }
 
   .modal-content-right-body-caption {
+    height: calc(100vh - 245px);
     position: absolute;
     top: 0;
     left: 0;
     right: 0;
-    bottom: 0;
+    /* bottom: 0; */
     z-index: 2;
     overflow-x: hidden;
     overflow-y: auto;
     padding: 10px 16px;
     background-color: #fff;
     font-size: 14px;
-    word-break: break-word;
-    white-space: pre-line;
+    {% comment %} word-break: break-word; {% endcomment %}
+    /* white-space: pre-line; */
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .modal-content-right-body-product-label {
+    color: rgb(48, 48, 48);
+    font-size: 13px;
+    font-weight: 700;
   }
 
   .modal-content-right-footer {
     border-top: 1px solid #efefef;
     position: absolute;
     padding: 0 8px;
+
     bottom: 0;
     z-index: 1;
     overflow-x: hidden;
@@ -987,6 +1055,58 @@
     margin-right: 5px;
   }
 
+  .popup-detail-shoppable-item {
+    display: flex;
+    flex-direction: column;
+    border-radius: 4px;
+    background: #fff;
+    box-shadow: rgba(37, 38, 39, 0.18) 0px 0px 8px 0px;
+    width: 128px;
+    text-decoration: none;
+    height:fit-content;
+  }
+  .popup-detail-shoppable-item:hover{
+    cursor: pointer;
+    transform: scale(1.1); /* (150% zoom - Note: if the zoom is too large, it will go outside of the viewport) */
+  }
+
+  .popup-detail-shoppable-item-detail {
+    padding: 5px;
+  }
+
+  .popup-detail-shoppable-item-detail-title {
+    color: #252627;
+    font-size: 12px;
+    white-space: nowrap;
+    margin-bottom: 4px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .popup-detail-shoppable-item-detail-price {
+    color: #252627;
+    font-weight: 600;
+    line-height: 16px;
+    margin-bottom: 12px;
+  }
+
+  .popup-detail-shoppable-item-detail-action {
+    display: flex;
+    justify-content: center;
+    padding: 5px;
+    border-radius: 2px;
+    background: #071330;
+    font-size: 12px;
+    font-weight: 500;
+    color: #ffffff;
+  }
+
+  .popup-detail-shoppable-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+  }
+
   .close {
     position: absolute;
     top: -15px;
@@ -999,11 +1119,173 @@
   .close:hover {
     opacity: 0.5;
   }
+  .popup-detail-shoppable-item-img{
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    object-fit: cover;
+    object-position: center top;
+  }
 </style>
+{% comment %} CSS and Script dot and popup  {% endcomment %}
+<style>
+  .popup {
+    display: flex;
+    gap: 6px;
+    position: absolute;
+    background: black;
+    color: white;
+    padding: 10px;
+    border-radius: 6px;
+    white-space: nowrap;
+    visibility: hidden;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+
+  .arrow {
+    display: block;
+    position: absolute;
+    width: 0;
+    height: 0;
+    border-style: solid;
+  }
+  .prevPost {
+    position: absolute;
+    top: 50%;
+    left: 5%;
+    align-items: center;
+    cursor: pointer;
+    display: inline-flex;
+    justify-content: center;
+    background: hsla(0, 0%, 100%, 0.4);
+    border-radius: 10px;
+    width: 32px;
+    height: 32px;
+    transition: 0.3s;
+  }
+  .prevPost:hover {
+    background: hsla(0, 0%, 100%, 1.4);
+  }
+  .nextPost {
+    position: absolute;
+    top: 50%;
+    right: 6%;
+    align-items: center;
+    cursor: pointer;
+    display: inline-flex;
+    justify-content: center;
+    background: hsla(0, 0%, 100%, 0.4);
+    border-radius: 10px;
+    width: 32px;
+    height: 32px;
+    transition: 0.3s;
+  }
+  .nextPost:hover {
+    background: hsla(0, 0%, 100%, 1.4);
+  }
+</style>
+<script>
+  let activeDot = null; // Biến lưu trữ dot đang hiển thị popup
+  function showPopup(event, dot, dotData) {
+    console.log('dot: ', dot);
+    const popup = document.getElementById('popup');
+    const arrow = document.getElementById('popup-arrow');
+    const productTitle = document.getElementById('product-title');
+    const productPrice = document.getElementById('product-price');
+    const imageContainer = document.querySelector('.modal-content-left-wrapper');
+    document.querySelector('.hotspot-popover-redirect').href = `products/${dotData.handle}`
+
+    productTitle.textContent = dotData.title;
+    productPrice.textContent = dotData.variants.edges[0].node.price;
+
+    // Gán dot hiện tại vào biến
+    if (activeDot) {
+      activeDot.classList.remove('dot-active'); // Xóa class nếu có dot trước đó
+    }
+    activeDot = dot;
+    dot.classList.add('dot-active'); // Thêm hiệu ứng dot
+
+    // Lấy kích thước container
+    const containerRect = imageContainer.getBoundingClientRect();
+    const popupWidth = popup.offsetWidth;
+    const popupHeight = popup.offsetHeight;
+    const arrowSize = 8; // Kích thước mũi tên
+
+    // Lấy tọa độ của dot
+    const dotRect = dot.getBoundingClientRect();
+    const dotX = dotRect.left - containerRect.left + dotRect.width / 2;
+    const dotY = dotRect.top - containerRect.top;
+
+    let popupX = dotX - popupWidth / 2; // Mặc định căn giữa dot
+    let popupY = dotY - popupHeight - arrowSize; // Hiển thị trên dot
+    let arrowLeft = popupWidth / 2 - arrowSize; // Mũi tên ở giữa
+    let arrowTop = popupHeight; // Mũi tên mặc định phía dưới popup
+
+    // Nếu popup tràn bên phải -> đẩy popup sang trái
+    if (popupX + popupWidth > containerRect.width) {
+      popupX = containerRect.width - popupWidth + 10;
+      arrowLeft = dotX - popupX - 4 - arrowSize / 2; // Điều chỉnh mũi tên theo dot
+    }
+
+    // Nếu popup tràn bên trái -> đẩy popup sang phải
+    if (popupX < 0) {
+      popupX = 1;
+      arrowLeft = dotX - popupX - arrowSize / 2 + 2; // Điều chỉnh mũi tên theo dot
+    }
+
+    // Nếu popup bị tràn lên trên -> hiển thị bên dưới dot
+    if (popupY < 0) {
+      popupY = dotY + dotRect.height + arrowSize;
+      arrowTop = -arrowSize;
+    }
+
+    // Hiển thị popup
+    popup.style.transform = `translate3d(${popupX}px, ${popupY}px, 0)`;
+    popup.style.visibility = 'visible';
+    popup.style.opacity = '1';
+    popup.style.zIndex = '99999';
+
+    // Cập nhật vị trí mũi tên
+    arrow.style.left = `${arrowLeft}px`;
+    arrow.style.top = `${arrowTop}px`;
+    arrow.style.borderWidth =
+      arrowTop > 0
+        ? `${arrowSize}px ${arrowSize}px 0` // Mũi tên hướng lên trên
+        : `0 ${arrowSize}px ${arrowSize}px`; // Mũi tên hướng xuống dưới
+    arrow.style.borderColor = arrowTop > 0 ? 'black transparent transparent' : 'transparent transparent black';
+  }
+
+  // Khi chuột ra khỏi dot hoặc popup -> chỉ ẩn popup sau một khoảng thời gian nhỏ
+  function handleMouseOut(event) {
+    hidePopupTimeout = setTimeout(() => {
+      hidePopup();
+    }, 1);
+  }
+
+  // Hủy ẩn popup khi chuột di chuyển vào popup
+  function cancelHidePopup() {
+    clearTimeout(hidePopupTimeout);
+  }
+
+  // Ẩn popup
+  function hidePopup() {
+    const popup = document.getElementById('popup');
+    popup.style.visibility = 'hidden';
+    popup.style.opacity = '0';
+
+    if (activeDot) {
+      activeDot.classList.remove('dot-active');
+      activeDot = null;
+    }
+  }
+</script>
+
 <!-- Logic JS -->
 <script>
   window.onload = async function () {
     const accessToken = '{{ access_token.longLivedAccessToken }}';
+    const galleryJson = {{ gallery | json }}
+    
     if (!accessToken) {
       console.error('Access token is required.');
       return;
@@ -1021,6 +1303,7 @@
       }
 
       const data = await response.json();
+      
       const username = data.username;
       const avatar = data.profile_picture_url;
       const mediaData = data.media.data;
@@ -1028,7 +1311,10 @@
       const row = document.getElementById('row');
 
       // Hàm tạo modal và gán vào body
-      const createModal = (imageURL, caption, username, avatar) => {
+      const createModal = (index) => {
+
+        const item = mediaData[index];
+        currentIndex = index; // Cập nhật index bài viết hiện tại
         // Xóa modal cũ nếu đã tồn tại
         const existingModal = document.getElementById('instagram-modal');
         if (existingModal) existingModal.remove();
@@ -1038,17 +1324,44 @@
         modal.id = 'instagram-modal';
         modal.className = 'modal';
         modal.innerHTML = `
+         <button class="prevPost" id="prevPost"><svg viewBox="0 0 20 20" class="MP-ChevronLeft" style="width: 25px; height: 25px;"><path fill-rule="evenodd" d="M11.764 5.204a.75.75 0 0 1 .032 1.06l-3.516 3.736 3.516 3.736a.75.75 0 1 1-1.092 1.028l-4-4.25a.75.75 0 0 1 0-1.028l4-4.25a.75.75 0 0 1 1.06-.032Z"></path></svg></button>
+                    <button class="nextPost" id="nextPost"><svg viewBox="0 0 20 20" class="MP-ChevronRight" style="width: 25px; height: 25px;"><path fill-rule="evenodd" d="M7.72 14.53a.75.75 0 0 1 0-1.06l3.47-3.47-3.47-3.47a.75.75 0 0 1 1.06-1.06l4 4a.75.75 0 0 1 0 1.06l-4 4a.75.75 0 0 1-1.06 0Z"></path></svg></button>
            <span class="close">&times;</span>
            <div class="modal-content">
             <div class="modal-content-left">
-                <div style="background-image: url(${imageURL})"
-                    class="modal-content-left-img">
+                <div  class="modal-content-left-wrapper">
+                    <img class="modal-content-left-img"
+                        src="${item.media_url}"
+                        alt="">
+
+                    <!-- Dot -->
+                    <div id="dots-container">
+                      <div class="dot" style="display:block" onmouseover="showPopup(event, this)"
+                          onmouseout="handleMouseOut(event)"></div>
+                      </div>
+
+                    <!-- Popup + Arrow -->
+                    <div class="popup" id="popup" onmouseover="cancelHidePopup()">
+                        <div class="hotspot-popover-content">
+                            <div id="product-title" style="white-space: 'nowrap'">Lorem ipsum dolor sit, amet consectetur</div>
+                            <div id="product-price" style="white-space: 'nowrap'">100.000đ</div>
+                        </div>
+                        <a class="hotspot-popover-redirect">
+                            <svg style="width: 15px; height:15px" width="4" height="7" viewBox="0 0 4 7" fill="none"
+                                xmlns="http://www.w3.org/2000/svg">
+                                <path
+                                    d="M3.64062 3.71094C3.75781 3.59375 3.75781 3.42969 3.66406 3.3125L0.898438 0.59375C0.78125 0.476562 0.59375 0.476562 0.5 0.59375L0.335938 0.757812C0.21875 0.875 0.21875 1.03906 0.335938 1.15625L2.72656 3.5L0.335938 5.86719C0.21875 5.98438 0.21875 6.14844 0.335938 6.26562L0.5 6.42969C0.59375 6.54688 0.78125 6.54688 0.898438 6.42969L3.64062 3.71094Z"
+                                    fill="white"></path>
+                            </svg>
+                        </a>
+                        <div style="display:block" class="arrow" id="popup-arrow"></div> <!-- Mũi tên -->
+                    </div>
                 </div>
             </div>
             <div class="modal-content-right">
                 <div class="modal-content-right-header">
                     <div class="modal-content-right-header-account">
-                        <div class="modal-content-right-header-account-avatar" style="background-image: url(${avatar});">
+                        <div class="modal-content-right-header-account-avatar" style="background-image: url(${data.profile_picture_url});">
                             <!-- <div class="modal-content-right-header-account-avatar-icon">
                                 <svg width="26" height="26" viewBox="0 0 26 26" fill="none"
                                     xmlns="http://www.w3.org/2000/svg">
@@ -1064,7 +1377,7 @@
                                 </svg>
                             </div> -->
                         </div>
-                        <div class="modal-content-right-header-account-name">${username}</div>
+                        <div class="modal-content-right-header-account-name">${data.username}</div>
                     </div>
                     <div class="modal-content-right-header-follow">
                         <span style="color: aliceblue; font-weight: 600;">Follow</span>
@@ -1072,7 +1385,11 @@
                 </div>
                 <div class="modal-content-right-body">
                     <div class="modal-content-right-body-caption">
-                        ${caption}
+                       ${item.caption || ''}
+                         <div class="modal-content-right-body-product-label">Featured products</div>
+                        <div id="popup-detail-shoppable-grid-id" class="popup-detail-shoppable-grid">
+                            
+                        </div>
                     </div>
                 </div>
                 <div class="modal-content-right-footer">
@@ -1110,6 +1427,20 @@
 
         // Hiển thị modal
         modal.style.display = 'block';
+         // Xử lý chuyển bài viết
+         document.getElementById('prevPost').addEventListener('click', () => {
+          const newIndex = (currentIndex - 1 + mediaData.length) % mediaData.length;
+          createModal(newIndex);
+        });
+        
+        document.getElementById('nextPost').addEventListener('click', () => {
+            const newIndex = (currentIndex + 1) % mediaData.length;
+            createModal(newIndex);
+        });
+      
+       // Hiển thị dots từ gallery
+       loadDotsForPost(item.id);
+       //loadProductsTag(item.id)
       };
 
       // Render bài viết
@@ -1122,6 +1453,7 @@
           </div>
         `;
         gallery.insertAdjacentHTML('beforeend', postHTML);
+        document.getElementById(`instagram-image${index}`).addEventListener('click', () => createModal(index));
       });
       //render demo slider
       mediaData.forEach((item, index) => {
@@ -1135,15 +1467,52 @@
                 </div>
             `;
         row.insertAdjacentHTML('beforeend', postDemoImg);
+        
       });
-      // Thêm sự kiện click vào ảnh
-      gallery.addEventListener('click', (event) => {
-        if (event.target.tagName === 'IMG') {
-          const imageURL = event.target.src;
-          const caption = event.target.getAttribute('data-caption');
-          createModal(imageURL, caption, username, avatar);
-        }
-      });
+    
+       // Hàm lấy danh sách dots từ gallery dựa vào ID bài post
+       const loadDotsForPost = (postId) => {
+        const dotsContainer = document.getElementById('dots-container');
+        dotsContainer.innerHTML = ''; // Xóa dots cũ
+
+        const productContainer = document.getElementById('popup-detail-shoppable-grid-id');
+        productContainer.innerHTML = '';
+
+        const postGalleryData = galleryJson.taggedProducts[postId] || []; // Lấy dữ liệu dot theo ID
+        postGalleryData.forEach(dot => {
+            const dotElement = document.createElement('div');
+            dotElement.className = 'dot';
+            dotElement.style.top = `${dot.position.y}%`;
+            dotElement.style.left = `${dot.position.x}%`;
+            dotElement.style.display = 'block';
+            // Thêm sự kiện hiển thị popup khi di chuột vào
+            dotElement.onmouseover = (event) => showPopup(event, dotElement, dot);
+            dotElement.onmouseout = (event) => handleMouseOut(event);
+            
+            const productElement = document.createElement('a');
+            productElement.className = 'popup-detail-shoppable-item';
+            productElement.href = `products/${dot.handle}`
+            productElement.innerHTML = `
+
+                <img class="popup-detail-shoppable-item-img" src="${dot.images.edges[0]?.node.src ?? 'https://cdn4.mageplaza.com/assets/appMedia/no-image.webp'}" alt="${dot.title}" />
+                <div class="popup-detail-shoppable-item-detail">
+                    <div class="popup-detail-shoppable-item-detail-title">${dot.title}</div>
+                    <div class="popup-detail-shoppable-item-detail-price">${dot.variants.edges[0].node.price}</div>
+                    <div class="popup-detail-shoppable-item-detail-action">VIEW DETAIL</div>
+                </div>
+            `;
+             // Sự kiện hover vào sản phẩm trong popup-detail
+            productElement.addEventListener("mouseenter", () => {
+              cancelHidePopup(); // Hủy ẩn popup nếu chuột vào sản phẩm
+              showPopup(null, dotElement, dot);
+            });
+            productElement.addEventListener("mouseleave", handleMouseOut);
+
+            dotsContainer.appendChild(dotElement);
+            productContainer.appendChild(productElement);
+        });
+        };
+      
     } catch (error) {
       console.error('Error:', error.message);
     }

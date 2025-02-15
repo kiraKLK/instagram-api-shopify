@@ -1,6 +1,6 @@
 import { useAppBridge } from '@shopify/app-bridge-react';
-import { Link, AccountConnection, Box, Text, Page,Button } from '@shopify/polaris';
-import {PlusIcon} from '@shopify/polaris-icons';
+import { Link, AccountConnection, Box, Text, Page, Button } from '@shopify/polaris';
+import { PlusIcon } from '@shopify/polaris-icons';
 import { useState, useEffect } from 'react';
 import { json } from "@remix-run/node";
 import { useLoaderData, useFetcher } from "@remix-run/react";
@@ -9,7 +9,7 @@ import { authenticate } from "../shopify.server";
 
 export async function loader({ request }) {
     const { session } = await authenticate.admin(request);
-    const account = await db.account.findFirst({
+    const account = await db.account.findMany({
         where: { sessionId: session.id },
     });
     return json({ account });
@@ -48,14 +48,13 @@ export default function AccountConnectionExample() {
     const fetcher = useFetcher();
     const { account } = useLoaderData();
     const [connected, setConnected] = useState(false);
-    const accountName = connected ? account?.accountName : '';
 
     useEffect(() => {
         shopify.loading(false)
-        if (account?.accessToken) {
+        if (account.length > 0) {
             setConnected(true);
         }
-    }, [account?.accessToken, shopify]);
+    }, [account, shopify]);
 
     useEffect(() => {
         if (fetcher.state === "loading") {
@@ -93,20 +92,41 @@ export default function AccountConnectionExample() {
 
     return (
         <>
-            <Page title="All account" primaryAction={<Button icon={PlusIcon} variant="primary" onClick={() => {  }}>Add account</Button>}>
-                <Box >
-                    <AccountConnection
-                        accountName={accountName}
-                        connected={connected}
-                        title="Instagram App"
-                        action={{
-                            content: buttonText,
-                            onAction: () => connected ? handleLogout(account.id) : window.open(url, "_parent"),
-                        }}
-                        details={details}
-                        termsOfService={terms}
-                    />
-                </Box>
+            <Page title="All account" primaryAction={<Button icon={PlusIcon} variant="primary" onClick={() => { }}>Add account</Button>}>
+                {account?.length > 0 ? (
+                    account.map((acc, index) => (
+                        <Box padding="400" key={index}>
+                            <AccountConnection
+                                accountName={acc.accountName}
+                                connected={connected}
+                                title="Instagram App"
+                                action={{
+                                    content: buttonText,
+                                    onAction: () => connected ? handleLogout(acc.id) : window.open(url, "_parent"),
+                                }}
+                                details={details}
+                                termsOfService={terms}
+                            />
+                        </Box>
+                    ))
+                ) : (
+                    <Box padding="400">
+                        <AccountConnection
+                            accountName="No Account"
+                            connected={false}
+                            title="Instagram App"
+                            action={{
+                                content: buttonText,
+                                onAction: () => window.open(url, "_parent"),
+                            }}
+                            details={details}
+                            termsOfService={terms}
+                        />
+                    </Box>
+                )}
+
+
+
             </Page>
         </>
     );

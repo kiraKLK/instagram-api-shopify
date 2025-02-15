@@ -32,6 +32,22 @@ model Account {
   accountName   String
   sessionId     String
   session       Session         @relation("SessionAccounts", fields: [sessionId], references: [id])
+  Source       Source[]       @relation("Source")
+}
+model Source {
+  id             Int     @id @default(autoincrement())
+  sourceName String
+  items Int
+  accountId      Int
+  account        Account @relation("Source", fields: [accountId], references: [id])
+  gallery       Gallery[]       @relation("Gallery")
+}
+
+model Gallery {
+  id             Int     @id @default(autoincrement())
+  taggerProducts String
+  sourceId      Int
+  source        Source @relation("Gallery", fields: [sourceId], references: [id])
   widgetSetting WidgetSetting[] @relation("Setting")
 }
 
@@ -44,7 +60,9 @@ model WidgetSetting {
   numberOfRows    Int
   paddingImg      Int
   borderImg       Int
-  accountId       Int
+  galleryId       Int
   widgetLayout    Int
-  account         Account @relation("Setting", fields: [accountId], references: [id])
+  gallery         Gallery @relation("Setting", fields: [galleryId], references: [id])
 }
+
+

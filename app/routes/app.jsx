@@ -55,8 +55,8 @@ export default function App() {
           Home
         </Link>
         <Link to="/app/account" onClick={(event) => handleClick(event, "/app/account")}>Account</Link>
-        <Link to="/app/test-deffered">test-deffered</Link>
         <Link to="/app/source" onClick={(event) => handleClick(event, "/app/source")}>Media source</Link>
+        <Link to="/app/gallary" onClick={(event) => handleClick(event, "/app/gallary")}>Gallery</Link>
         <Link to="/app/widget" onClick={(event) => handleClick(event, "/app/widget")}>Widget</Link>
       </NavMenu>
       <Outlet context={{ apiKey, host }} />

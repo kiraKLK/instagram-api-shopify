@@ -16,6 +16,53 @@
 
 .preview-feed-container {}
 
+.modal-1 {
+    position: relative;
+    z-index: 498;
+    width: 100%;
+    height: 100vh;
+    min-width: 280px;
+    min-height: 250px;
+    background: rgb(255, 255, 255);
+    box-shadow: rgba(40, 41, 61, 0.08) 0px 2px 8px, rgba(96, 97, 112, 0.24) 0px 20px 32px;
+    border-radius: 0px;
+    display: flex;
+    flex-direction: column;
+}
+
+.modal-header {
+
+    border-bottom: 1px solid rgb(210, 213, 216);
+}
+
+.preview-feed {
+    flex: 1 1 0%;
+    overflow: hidden;
+    z-index: 1;
+    min-width: 1046px;
+    background: rgb(246, 246, 247);
+    height: 100%;
+}
+
+.preview-feed-container-desktop {
+    padding: var(--p-space-card-gap);
+    flex-direction: column;
+    align-items: center;
+    border: 1px solid rgb(230, 230, 230);
+    background: rgb(255, 255, 255);
+    margin: 32px;
+    border-radius: 12px;
+    /* width: 956px; */
+}
+
+.preview-feed-bar {
+    padding: 8px 19px;
+    border-radius: 4px 4px 0px 0px;
+    background: rgb(250, 250, 250);
+    margin-bottom: 20px;
+}
+
+
 .preview-feed-container-row {
     display: flex;
 }
@@ -43,8 +90,37 @@
     height: 100%;
 }
 
+.modal-content {
+    flex: 1 1 0%;
+    display: flex;
+    overflow: auto;
+    align-items: stretch;
+}
+
 .modal-content-aside-config {
     width: 98%;
+}
+
+.configs-page-content-main-aside {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    box-shadow: rgba(0, 0, 0, 0.15) 0px 2px 2px -1px;
+    width: 400px;
+    min-width: 320px;
+    background: transparent;
+    border-right: 1px solid rgb(210, 213, 216);
+    overflow: hidden;
+    position: relative;
+}
+
+.configs-page-content-main-aside-inside {
+    flex: 1 1 0%;
+    background: rgb(255, 255, 255);
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    position: relative;
 }
 
 .modal-content-aside-config-input {
@@ -105,8 +181,13 @@
 }
 
 .modal-content-setting {
+    flex: 1 1 0%;
     display: flex;
     flex-direction: column;
+}
+
+.layout-setting {
+    padding: 16px;
 }
 
 .modal-content-setting-stepper {}
@@ -177,13 +258,16 @@
 }
 
 .modal-content-setting-header {
+    padding-top: 16px;
     padding-bottom: 16px;
+    border-bottom: 1px solid rgb(210, 213, 216);
+    padding-right: 16px;
 }
 
 .modal-content-setting-footer {
     display: flex;
     justify-content: flex-end;
-    padding: 10px 20px 0 20px;
+    padding: 10px 20px 10px 20px;
     border-top: 1px solid rgb(210, 213, 216);
 }
 
@@ -373,4 +457,441 @@ img {
     align-items: center;
     justify-content: center;
     background-color: var(--p-color-bg-surface-selected);
+}
+
+.widget-configs-preview-mobile-container {
+    position: absolute;
+    inset: 8px 11px;
+    overflow: hidden;
+    border-radius: 36px;
+    background: rgb(255, 255, 255);
+}
+
+.mobile-skeleton-1 {
+    width: 100%;
+    height: 36px;
+    border-radius: 10px;
+    background: var(--Shades-Light-Gray-03, #F3F3F3);
+    margin-bottom: 15px;
+}
+
+.preview-mobile-instagram-feed {
+    padding: 35px 16px;
+    overflow: hidden;
+}
+
+.simplebar-track.simplebar-vertical {
+    top: 0;
+    width: 11px;
+}
+
+.simplebar-track.simplebar-horizontal {
+    left: 0;
+    height: 11px;
+}
+
+.layout-setting-content-custom {
+    margin-top: 6px;
+    padding-top: 16px;
+    border-top: var(--size-025, 1px) solid var(--p-color-border);
+}
+
+.layout-setting-content-custom-input-margin input {
+    width: 50px;
+}
+
+.layout-setting-content-custom-input-margin .Polaris-TextField__Spinner {
+    display: none;
+}
+
+.layout-setting-content-custom-input-margin .Polaris-TextField__Backdrop {
+    background-color: rgb(247, 247, 247);
+    border: none;
+    border-radius: var(--p-border-radius-200);
+}
+
+.layout-setting-content-custom-input-margin .Polaris-TextField__Input:focus-visible~.Polaris-TextField__Backdrop {
+    background-color: rgb(247, 247, 247);
+    outline: none !important;
+    border-radius: var(--p-border-radius-200);
+}
+
+.custom-switch {
+    border-radius: var(--p-border-radius-150);
+    width: 32px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    position: relative;
+    cursor: pointer;
+    padding: 2px;
+    transition: 0.5s;
+}
+
+.custom-switch__check {
+    width: 12px;
+    height: 12px;
+    background: rgb(255, 255, 255);
+    border: 1px solid rgb(255, 255, 255);
+    border-radius: var(--p-border-radius-100);
+    position: absolute;
+    transition: 0.36s cubic-bezier(0.78, 0.14, 0.15, 0.86);
+}
+
+.preview-feed-title {
+    font-size: 18px;
+    text-align: center;
+    margin-bottom: 12px;
+}
+
+.preview-feed-desc {
+    font-size: 14px;
+    text-align: center;
+    margin-bottom: 12px;
+}
+
+.preview-feed-account {
+    display: flex;
+    justify-content: center;
+    width: 60%;
+    margin: auto auto 12px;
+}
+
+.preview-feed-account-avatar {
+    width: 86px;
+    height: 86px;
+    min-width: 86px;
+    min-height: 86px;
+    margin-right: 16px;
+    position: relative;
+}
+
+.preview-feed-account-avatar-main {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 50%;
+    overflow: hidden;
+}
+
+.preview-feed-account-avatar-instagram-logo {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 50%;
+    overflow: hidden;
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    max-width: 14px;
+    max-height: 14px;
+}
+
+.preview-feed-account-detail {}
+
+.preview-feed-account-detail-header {
+    display: flex;
+    margin-bottom: 16px;
+    align-items: center;
+}
+
+.preview-feed-account-detail-header-name {
+    margin-right: 27px;
+}
+
+.preview-feed-account-detail-header-button-follow {
+    background: #101010;
+    border-radius: 3px;
+    min-height: 32px;
+    padding: 0 16px;
+    border: none;
+    display: inline-flex;
+    align-items: center;
+}
+
+.preview-feed-account-detail-number {
+    display: flex;
+    font-size: 14px;
+    margin-bottom: 8px;
+    gap: 8px;
+}
+
+.preview-feed-account-detail-number-post {}
+
+.preview-feed-account-detail-number-follower {}
+
+.preview-feed-account-detail-number-following {}
+
+.preview-feed-account-detail-account-name {
+    display: flex;
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 1px;
+}
+
+.shoping-setting-section-item-wrapper {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.color-picker-main {
+    display: flex;
+
+}
+
+.shoping-setting-section {
+    margin-top: 16px;
+    margin-right: 16px;
+    border-bottom: var(--size-025, 1px) solid var(--p-color-border);
+}
+
+.shoping-setting-section-item-label {
+    margin-bottom: 16px;
+    font-weight: 400;
+}
+
+.color-picker-main {
+    display: flex;
+}
+
+.color-picker-main-picked {
+    display: flex;
+    position: relative;
+    cursor: pointer;
+    padding: 6px 5px;
+    border: 1px solid rgb(225, 227, 229);
+    border-radius: 4px;
+    transition: 0.15s;
+    width: 88px;
+    align-items: center;
+}
+
+.color-picker-main-picked-color {
+    width: 18px;
+    height: 18px;
+    min-width: 18px;
+    min-height: 18px;
+    /* background: rgb(0, 0, 0); */
+    border: 1px solid rgba(0, 0, 0, 0.3);
+    border-radius: 4px;
+    margin-right: 6px;
+    z-index: 1;
+    cursor: pointer;
+}
+
+.color-picker-main-picked-hex {
+    border: medium none;
+    outline: none;
+    color: rgb(109, 113, 117);
+    font-size: 12px;
+    font-weight: 400;
+    z-index: 1;
+}
+
+.shoping-setting-section-item {
+    margin-bottom: 16px;
+}
+
+.color-picker-main-picked-alpha {
+    display: flex;
+    justify-content: center;
+    position: relative;
+    cursor: pointer;
+    padding: 6px 8px;
+    border: 1px solid rgb(225, 227, 229);
+    border-radius: 4px;
+    transition: 0.15s;
+    color: rgb(109, 113, 117);
+    font-size: 12px;
+    font-weight: 400;
+    margin-left: 8px;
+    width: 48px;
+}
+
+.color-picker-title {
+    margin-left: 8px;
+}
+
+.preview-instagram-popup {
+    border-radius: var(--card-radius-figma-only, 12px);
+    background: rgb(255, 255, 255);
+    padding: 16px 56px;
+    border: 1px solid var(--p-color-border);
+    margin: 32px;
+    position: relative;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.preview-instagram-popup-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.preview-instagram-popup-wrapper {
+    max-width: 844px;
+    min-width: 800px;
+    width: 100%;
+    display: flex;
+    box-shadow: rgba(0, 0, 0, 0.1) 0px 2px 20px 0px;
+    flex: 1 1 0%;
+}
+
+.preview-instagram-popup-image {
+    height: 496px;
+    width: 496px;
+    position: relative;
+}
+
+.eoDuSw .preview-instagram-popup-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.preview-instagram-popup-detail {
+    flex: 1 1 0%;
+    display: flex;
+    flex-direction: column;
+}
+
+.preview-instagram-popup-detail-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 10px;
+    border-bottom: 1px solid rgb(200, 212, 232);
+}
+
+.preview-instagram-popup-detail-content {
+    padding: 10px;
+    flex: 1 1 0%;
+}
+
+.preview-instagram-popup-detail-shoppable {
+    margin: 0px 10px;
+    padding: 10px 0px;
+    border-top: 1px solid rgb(200, 212, 232);
+}
+
+.preview-instagram-popup-detail-header img {
+    width: 40px;
+    height: 40px;
+}
+
+.instagram-popup-follow-btn {
+    background: #101010;
+    border-radius: 3px;
+    min-height: 32px;
+    padding: 0 16px;
+    border: none;
+    display: inline-flex;
+    align-items: center;
+}
+
+.preview-instagram-popup-detail-footer {
+    padding: 9px 10px;
+    border-top: 1px solid rgb(200, 212, 232);
+    display: flex;
+    justify-content: space-between;
+}
+
+.popup-detail-shoppable-item {
+    display: flex;
+    flex-direction: column;
+    border-radius: 4px;
+    background: var(--Base-Color, #fff);
+    box-shadow: rgba(37, 38, 39, 0.18) 0px 0px 8px 0px;
+    width: 128px;
+}
+
+.popup-detail-shoppable-item-detail {
+    padding: 5px;
+}
+
+.popup-detail-shoppable-item-detail-title {
+    color: var(--Shades-Dark-Gray-01, #252627);
+    font-size: 12px;
+    white-space: nowrap;
+    margin-bottom: 4px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.popup-detail-shoppable-item-detail-price {
+    color: var(--Shades-Dark-Gray-01, #252627);
+    font-weight: 600;
+    line-height: 16px;
+    margin-bottom: 12px;
+}
+
+.popup-detail-shoppable-item-detail-action {
+    display: flex;
+    justify-content: center;
+    padding: 5px;
+    border-radius: 2px;
+    background: var(--sw-cta-btn-color, #071330);
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--sw-cta-btn-text-color, #ffffff)
+}
+
+.preview-instagram-popup-detail-footer-date {
+    display: flex;
+    align-items: center;
+    color: var(--Shades-Dark-Gray-03, #828282);
+    font-size: 11px;
+}
+
+.preview-instagram-popup-detail-footer-text {
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: rgb(196, 196, 196);
+    margin: 0px 4px;
+}
+
+.widget-hotspot {
+    position: absolute;
+    inset: 0px;
+}
+
+.widget-hotspot-item {
+    position: absolute;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--sw-hotspot-color, #ffffff);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1;
+}
+
+.widget-hotspot-item-popover {
+    position: absolute;
+    top: calc(100% + 23px);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background-color: var(--sw-hotspot-hover-color, rgb(37, 38, 39));
+    opacity: 0.9;
+    border-radius: 8px;
+    color: var(--Base-Color, #fff);
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.widget-hotspot-item-popover-arrow {
+    width: 0px;
+    height: 0px;
+    border-left: 14px solid transparent;
+    border-right: 14px solid transparent;
+    position: absolute;
+    top: -14px;
+    border-bottom: 14px solid var(--sw-hotspot-hover-color, rgb(37, 38, 39));
+    opacity: 0.9;
 }

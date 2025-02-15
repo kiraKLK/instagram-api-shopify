@@ -12,40 +12,136 @@ import {
     InlineStack,
     ChoiceList,
     InlineGrid,
-    SkeletonPage,
-    Layout,
-    SkeletonBodyText,
-    Divider,
-    SkeletonThumbnail,
-    SkeletonDisplayText
+    EmptyState
 } from '@shopify/polaris';
 import { PlusIcon, MenuVerticalIcon } from '@shopify/polaris-icons';
 import { useState, useCallback, useEffect } from 'react';
 import { Modal, TitleBar, useAppBridge } from '@shopify/app-bridge-react';
-import { useNavigate, Outlet, useParams } from "@remix-run/react";
+import { useNavigate, Outlet, useParams, useLoaderData, useFetcher, Form } from "@remix-run/react";
 import styles from '../style/style-widget.css?url'
+import db from "../db.server";
+import { authenticate } from "../shopify.server";
+import { json } from "@remix-run/node";
 export const links = () => [{ rel: "stylesheet", href: styles }];
+
+export async function loader({ request }) {
+    const { session } = await authenticate.admin(request);
+    const account = await db.account.findMany({
+        where: { sessionId: session?.id },
+    });
+    const source = await db.source.findMany({
+
+    });
+
+    return json({ account, source });
+}
+
+export async function action({ request }) {
+    const formData = Object.fromEntries(await request.formData());
+    const accountId = parseInt(formData?.id?.toString() ?? "1", 10);
+    try {
+        //Xóa các setting liên quan đến tài khoản
+        const accountSettings = await db.widgetSetting.deleteMany({
+            where: {
+                accountId: accountId
+            }
+        })
+        console.log('accountSettings: ', accountSettings);
+        //xóa tài khoản
+        const accountDelete = await db.account.delete({
+            where: {
+                id: accountId,
+            },
+        });
+        console.log('accountDelete: ', accountDelete);
+        return json({
+            success: true,
+            message: `Logout successfully.`,
+        });
+    } catch (error) {
+        console.error("Cannot delete account from database!", error);
+        return json({ error: "Internal server error." }, { status: 500 });
+    }
+}
 
 
 export default function PageExample() {
+    const url = "https://www.instagram.com/oauth/authorize?enable_fb_login=0&force_authentication=1&client_id=1711527026305376&redirect_uri=https://admin.shopify.com/store/test-qr-app/apps/test-theme-28/app/callback&response_type=code&scope=instagram_business_basic%2Cinstagram_business_manage_messages%2Cinstagram_business_manage_comments%2Cinstagram_business_content_publish";
     //Tạo biến để sử dụng modal và savebar
     const shopify = useAppBridge()
     //Xử dụng hook useSubmit để đấy dữ liệu từ hàm front sang action ở back
     const navigate = useNavigate();
     const params = useParams();
 
+    const { account, source } = useLoaderData();
+
+    const fetcher = useFetcher();
+    useEffect(() => {
+        if (fetcher.state === "loading") {
+            // Hiển thị toast khi lưu và load dữ liệu thành công
+            shopify.toast.show(fetcher.data?.message, {
+                duration: 2500,
+            })
+            shopify.loading(false) // tắt loading
+        }
+    }, [shopify, fetcher.state, fetcher.data?.message])
+
     useEffect(() => {
         shopify.loading(false)
     }, [shopify]);
+
+    const handleCreateSource = async () => {
+        try {
+            const formData = new FormData();
+            formData.append("sourceName", sourceNameValue);
+            formData.append("accountName", selectedAccounts[0]);
+            await fetcher.submit(formData, { method: "post" });
+            shopify.loading(true)
+        } catch (error) {
+            console.error("Error deleting account:", error);
+        }
+    };
     //Source name
+    const [showError, setShowError] = useState(false);
     const [sourceNameValue, setSourceNameValue] = useState('');
     const handleSourceNameChange = useCallback(
-        (value) => setSourceNameValue(value),
-        [],
+        (value) => {
+            setSourceNameValue(value);
+            if (showError) {
+                // Xóa lỗi khi người dùng bắt đầu nhập lại
+                setShowError(false)
+            } else if (value === '') {
+                //Hiện thị lại lỗi nếu người dùng xóa hết
+                setShowError(true)
+            }
+        },
+        [showError],
     );
     //Chọn account tạo source
-    const [selected, setSelected] = useState(['hidden']);
-    const handleChange = useCallback((value) => setSelected(value), []);
+    // State để lưu trạng thái chọn của từng tài khoản
+    const [showErrorAccount, setShowErrorAccount] = useState(false);
+    const [selectedAccounts, setSelectedAccounts] = useState([account[0].accountName]);
+    // Xử lý khi thay đổi giá trị ChoiceList
+    const handleChange = useCallback((value) => {
+        setSelectedAccounts(value);
+        if (showErrorAccount) {
+            // Xóa lỗi khi người dùng bắt đầu nhập lại
+            setShowErrorAccount(false)
+        } else if (value === '') {
+            //Hiện thị lại lỗi nếu người dùng xóa hết
+            setShowErrorAccount(true)
+        }
+    }, [showErrorAccount]);
+
+    const validataForm = (sourceName, accountName) => {
+        if (sourceName === "") setShowError(true)
+        //if (accountName.length === 0) setShowErrorAccount(true)
+        return (
+            sourceName !== ""
+            //accountName.length > 0
+        )
+    }
+
     const orders = [
         {
             Name: 'Test source',
@@ -92,7 +188,7 @@ export default function PageExample() {
                     key={id}
                     selected={selectedResources.includes(id)}
                     position={index}
-                    onClick={() => {navigate(`/app/source/${id}`); shopify.loading(true)}}
+                    onClick={() => { navigate(`/app/source/${id}`); shopify.loading(true) }}
                 >
                     <IndexTable.Cell>
                         <Text alignment='center' variant="bodyMd" fontWeight="bold" as="span">
@@ -136,97 +232,6 @@ export default function PageExample() {
         }
     ];
 
-    const Skeleton = () => {
-        return (
-            <SkeletonPage backAction title="Edit Media Source" primaryAction>
-                <div style={{ height: '90vh' }}>
-                    <Layout>
-                        <Layout.Section variant="oneThird">
-                            <Card>
-                                <Box padding="400">
-                                    <Text variant="headingLg" as="h5">
-                                        Setting
-                                    </Text>
-                                </Box>
-                                <Divider borderColor="border" />
-                                <Box paddingBlockStart='400'>
-                                    <BlockStack gap='200'>
-                                        <SkeletonDisplayText size="small" />
-                                        <SkeletonBodyText />
-                                        <SkeletonDisplayText size="small" />
-                                        <SkeletonBodyText />
-                                        <SkeletonDisplayText size="small" />
-                                        <SkeletonBodyText />
-                                        <SkeletonDisplayText size="small" />
-                                        <SkeletonBodyText />
-                                        <SkeletonDisplayText size="small" />
-                                        <SkeletonDisplayText size="small" />
-
-                                    </BlockStack>
-                                </Box>
-                            </Card>
-                        </Layout.Section>
-                        <Layout.Section >
-                            <Card >
-                                <Box padding="400">
-                                    <Text variant="headingLg" as="h5">
-                                        Preview source
-                                    </Text>
-                                </Box>
-                                <Divider borderColor="border" />
-                                <Box paddingBlockStart='400'>
-                                    <BlockStack gap='200'>
-                                        <InlineStack align='space-between'>
-                                            <SkeletonThumbnail size="large" />
-                                            <SkeletonThumbnail size="large" />
-                                            <SkeletonThumbnail size="large" />
-                                            <SkeletonThumbnail size="large" />
-                                            <SkeletonThumbnail size="large" />
-                                            <SkeletonThumbnail size="large" />
-                                        </InlineStack>
-                                        <InlineStack align='space-between'>
-                                            <SkeletonThumbnail size="large" />
-                                            <SkeletonThumbnail size="large" />
-                                            <SkeletonThumbnail size="large" />
-                                            <SkeletonThumbnail size="large" />
-                                            <SkeletonThumbnail size="large" />
-                                            <SkeletonThumbnail size="large" />
-                                        </InlineStack>
-                                        <InlineStack align='space-between'>
-                                            <SkeletonThumbnail size="large" />
-                                            <SkeletonThumbnail size="large" />
-                                            <SkeletonThumbnail size="large" />
-                                            <SkeletonThumbnail size="large" />
-                                            <SkeletonThumbnail size="large" />
-                                            <SkeletonThumbnail size="large" />
-                                        </InlineStack>
-                                        <InlineStack align='space-between'>
-                                            <SkeletonThumbnail size="large" />
-                                            <SkeletonThumbnail size="large" />
-                                            <SkeletonThumbnail size="large" />
-                                            <SkeletonThumbnail size="large" />
-                                            <SkeletonThumbnail size="large" />
-                                            <SkeletonThumbnail size="large" />
-                                        </InlineStack>
-                                        <InlineStack align='space-between'>
-                                            <SkeletonThumbnail size="large" />
-                                            <SkeletonThumbnail size="large" />
-                                            <SkeletonThumbnail size="large" />
-                                            <SkeletonThumbnail size="large" />
-                                            <SkeletonThumbnail size="large" />
-                                            <SkeletonThumbnail size="large" />
-                                        </InlineStack>
-                                    </BlockStack>
-                                </Box>
-
-                            </Card>
-                        </Layout.Section>
-                    </Layout>
-                </div>
-            </SkeletonPage>
-        )
-    }
-
     if (params.sourceId) {
         return <Outlet />
     }
@@ -234,10 +239,10 @@ export default function PageExample() {
         <>
             <Page
                 title="All media sources"
-                primaryAction={<Button icon={PlusIcon} variant="primary" onClick={() => { shopify.modal.show('my-modal'); }}>Add new account</Button>}
+                primaryAction={<Button icon={PlusIcon} variant="primary" onClick={() => { shopify.modal.show('my-modal'); }}>Add new source</Button>}
                 fullWidth
             >
-                <Box paddingBlockEnd="400">
+                {source.length > 0 ? (<Box paddingBlockEnd="400">
                     <LegacyCard>
                         <IndexTable
                             resourceName={resourceName}
@@ -263,63 +268,113 @@ export default function PageExample() {
                             {rowMarkup}
                         </IndexTable>
                     </LegacyCard>
-                </Box>
+                </Box>) :
+                    (<LegacyCard sectioned>
+                        <EmptyState
+                            heading="Manage your inventory transfers"
+                            action={{ content: 'Add transfer' }}
+                            secondaryAction={{
+                                content: 'Learn more',
+                                url: 'https://help.shopify.com',
+                            }}
+                            image="https://cdn.shopify.com/s/files/1/0262/4071/2726/files/emptystate-files.png"
+                        >
+                            <p>Track and receive your incoming inventory from suppliers.</p>
+                        </EmptyState>
+                    </LegacyCard>)
+
+                }
+
             </Page>
-            <Modal id="my-modal">
-                <BlockStack>
-                    <Box padding='400' background="bg-surface" borderRadius="100">
-                        <Card>
-                            <TextField
-                                label="Name your media source"
-                                value={sourceNameValue}
-                                onChange={handleSourceNameChange}
-                                placeholder="Please enter..."
-                                autoComplete="off"
-                            />
-                        </Card>
-                    </Box>
-                    <Box padding='400' background="bg-surface" borderRadius="100">
-                        <Card>
-                            <BlockStack gap='200'>
-                                <InlineStack align="space-between">
-                                    <Text variant="headingMd" as="h6">
-                                        Account
-                                    </Text>
-                                    <Button icon={PlusIcon} variant="plain">Add new account</Button>
-                                </InlineStack>
-                                <Card>
-                                    <BlockStack gap='200'>
-                                        <Text variant="bodyMd" as="p">
-                                            Select profile
+
+            <fetcher.Form action="/app/source/create" method="get">
+                <Modal id="my-modal">
+                    <BlockStack>
+                        <Box padding='400' background="bg-surface" borderRadius="100">
+                            <Card>
+                                <TextField
+                                    label="Name your media source"
+                                    error={showError && "Source name is required"}
+                                    value={sourceNameValue}
+                                    onChange={handleSourceNameChange}
+                                    placeholder="Please enter..."
+                                    autoComplete="off"
+                                />
+                            </Card>
+                        </Box>
+                        <Box padding='400' background="bg-surface" borderRadius="100">
+                            <Card>
+                                <BlockStack gap='200'>
+                                    <InlineStack align="space-between">
+                                        <Text variant="headingMd" as="h6">
+                                            Account
                                         </Text>
-                                        <InlineGrid columns={2}>
-                                            <Box borderStyle='solid' borderRadius="200" borderWidth='25' padding='200'>
-                                                <InlineStack align='space-between'>
-                                                    <InlineStack gap='200' blockAlign='center'>
-                                                        <div className='item-select-profile-name'>I</div>
-                                                        <div className='item-select-profile-username'>Tungvan2024</div>
+                                        <Button onClick={() => window.open(url, "_parent")} icon={PlusIcon} variant="plain">Add new account</Button>
+                                    </InlineStack>
+                                    <Card>
+                                        <BlockStack gap='200'>
+                                            <Text variant="bodyMd" as="p">
+                                                Select profile
+                                            </Text>
+                                            {account.length > 0 ?
+                                                (
+                                                    <InlineGrid gap='100' columns={2}>
+                                                        {account.map((acc, index) => (
+                                                            <Box key={index} borderStyle='solid' borderRadius="200" borderWidth='25' padding='200'>
+                                                                <InlineStack align='space-between'>
+                                                                    <InlineStack gap='200' blockAlign='center'>
+                                                                        <div className='item-select-profile-name'>I</div>
+                                                                        <div className='item-select-profile-username'>{acc.accountName}</div>
+                                                                    </InlineStack>
+                                                                    <ChoiceList
+                                                                        choices={[
+                                                                            { label: '', value: acc.accountName },
+                                                                        ]}
+                                                                        selected={selectedAccounts}
+                                                                        onChange={(value) => handleChange(value)}
+                                                                        error={showErrorAccount && "Chose a account"}
+                                                                    />
+                                                                </InlineStack>
+                                                            </Box>
+                                                        ))}
+                                                    </InlineGrid>
+                                                ) : (
+                                                    <InlineStack blockAlign='center' align="space-between">
+                                                        <InlineStack>
+
+                                                            <div>Connect your Instagram account first.</div>
+                                                        </InlineStack>
+                                                        <Button onClick={() => window.open(url, "_parent")} variant="primary">Connect</Button>
                                                     </InlineStack>
-                                                    <ChoiceList
-                                                        choices={[
-                                                            { label: '', value: 'hidden' },
-                                                        ]}
-                                                        selected={selected}
-                                                        onChange={handleChange}
-                                                    />
-                                                </InlineStack>
-                                            </Box>
-                                        </InlineGrid>
-                                    </BlockStack>
-                                </Card>
-                            </BlockStack>
-                        </Card>
-                    </Box>
-                </BlockStack>
-                <TitleBar title="Add new media source">
-                    <button onClick={() => { shopify.modal.hide('my-modal') }} variant="primary">Next</button>
-                    <button onClick={() => shopify.modal.hide('my-modal')}>Cancel</button>
-                </TitleBar>
-            </Modal>
+                                                )
+                                            }
+                                        </BlockStack>
+                                    </Card>
+                                </BlockStack>
+                            </Card>
+                        </Box>
+                    </BlockStack>
+                    <TitleBar title="Add new media source">
+                        <button
+                            type="submit"
+                            onClick={(e) => {
+                                e.preventDefault(); // Ngăn form submit mặc định
+                                if (validataForm(sourceNameValue, selectedAccounts)) {
+                                    console.log("Form submitted successfully!");
+                                    document.querySelector("form").submit(); // Gửi form khi hợp lệ
+                                    shopify.modal.hide('my-modal')
+                                } else {
+                                    console.log("Form validation failed!");
+                                }
+                            }}
+                            variant="primary"
+                        >
+                            Next
+                        </button>
+                        <button onClick={() => shopify.modal.hide('my-modal')}>Cancel</button>
+                    </TitleBar>
+                </Modal>
+            </fetcher.Form>
         </>
     );
 

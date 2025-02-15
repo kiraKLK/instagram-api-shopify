@@ -1,11 +1,11 @@
-
-.list-media-source{
+.list-media-source {
     display: grid;
     grid-template-columns: auto auto auto;
     gap: 15px;
     padding: var(--p-border-radius-400);
 }
-.list-media-source-item{
+
+.list-media-source-item {
     background-size: cover;
     padding-top: 100%;
     position: relative;
@@ -13,34 +13,40 @@
     background-repeat: no-repeat;
     background-color: rgb(240, 241, 242);
 }
-.modal{
+
+.modal {
     display: flex;
     height: calc(-60px + 100vh);
 }
-.modal-left{
+
+.modal-left {
     background-color: var(--p-color-bg-surface-inverse);
     width: 100%;
 }
-.modal-left-media{
+
+.modal-left-media {
     background-size: contain;
     background-position: center center;
     display: flex;
     background-repeat: no-repeat;
     width: 100%;
     height: 100%;
+    cursor: crosshair;
 }
-.modal-right{
+
+.modal-right {
     flex: 0 0 420px;
     max-width: 420px;
     background: rgb(255, 255, 255);
 }
-.modal-right-infor{
-    
-}
-.modal-right-infor-header{
+
+.modal-right-infor {}
+
+.modal-right-infor-header {
     padding: 16px;
 }
-.modal-right-infor-header-avatar{
+
+.modal-right-infor-header-avatar {
     align-items: center;
     background-repeat: no-repeat;
     background-size: cover;
@@ -55,22 +61,30 @@
     padding: 2px;
     width: 40px;
 }
-.modal-right-infor-header-name{
+
+.modal-right-infor-header-name {
     font-weight: 550;
 }
-.modal-right-infor-content{
+
+.modal-right-infor-content {
     white-space: pre-line;
     padding: 0 var(--p-space-400) 0 var(--p-space-400);
 }
-.modal-right-infor-content-total-reaction{
+
+.modal-right-infor-content-total-reaction {
     background-color: var(--p-color-bg);
     border-radius: var(--p-border-radius-200);
     margin-bottom: var(--p-space-400);
 }
-.modal-right-infor-footer{
+
+.modal-right-infor-footer {
     white-space: pre-line;
     padding: 0 var(--p-space-400) 0 var(--p-space-400);
 }
-section.Polaris-Box{
+
+section.Polaris-Box {
     padding: 0;
 }
+
+
+

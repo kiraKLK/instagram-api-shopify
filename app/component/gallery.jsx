@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
+
 import {
     InlineGrid,
     Text,
@@ -14,363 +14,84 @@ import {
     Icon,
     Modal,
     Pagination,
-    Button
-} from '@shopify/polaris';
-import { Modal as ModalIframe, TitleBar, useAppBridge } from '@shopify/app-bridge-react';
-import {
-    SearchIcon, DeleteIcon
-} from '@shopify/polaris-icons';
-import { json } from "@remix-run/node";
-import styles from '../style/style-gallery.css?url'
-import { useLoaderData, useFetcher } from "@remix-run/react";
-import axios from 'axios';
-import db from "../db.server";
-import { authenticate } from "../shopify.server";
+    Button,
+    InlineError,
+    EmptyState,
 
+} from '@shopify/polaris';
+import { Modal as ModalIframe, TitleBar } from '@shopify/app-bridge-react';
+import {
+    SearchIcon, DeleteIcon, PlusIcon, LogoInstagramIcon,
+} from '@shopify/polaris-icons';
+import styles from '../style/style-gallery.css?url'
 export const links = () => [{ rel: "stylesheet", href: styles }];
 
-export async function loader({ request }) {
-    const { admin, session } = await authenticate.admin(request);
-    const widget = await db.account.findFirst({
-        where: { sessionId: session.id },
-    })
-    const accessToken = widget?.accessToken
-    const gallery = await db.gallery.findFirst({
-        where: {
-            id: 1
-        }
-    })
-    if (accessToken) {
-        try {
-            const response = await axios.get('https://graph.instagram.com/me', {
-                params: {
-                    fields: 'profile_picture_url,username,media{caption,media_type,media_url,comments_count,like_count,timestamp}',
-                    access_token: accessToken
-                }
-            });
-
-            const posts = response?.data;
-            const responseProducts = await admin.graphql(
-                `#graphql
-                query {
-                    products (first: 50, query: "status:active AND published_status:published") {
-                        nodes {
-                        id
-                        title
-                        handle
-                        images(first: 1) {
-                            edges {
-                            node {
-                                src
-                            }
-                            }
-                        }
-                        variants(first: 1) {
-                            edges {
-                            node {
-                                price
-                            }
-                            }
-                        }
-                        }
-                    }
-                }`,
-            );
-
-            const data = await responseProducts.json();
-            const products = data.data.products
-
-            return json({ posts, products, gallery: gallery?.taggerProducts });
-        } catch (error) {
-            console.error('Lỗi khi lấy bài viết:', error.response?.data || error.message);
-            throw error;
-        }
-    }
-    return null;
-}
-
-export const action = async ({ request, params }) => {
-    try {
-        // Xác thực admin và session
-        const { admin, session } = await authenticate.admin(request);
-
-        // Chuyển đổi formData thành đối tượng
-        const formData = Object.fromEntries(await request.formData());
-        const actionType = formData._action;
-        // Lấy dữ liệu từ formData
-        const taggedProducts = JSON.parse(formData?.taggedProducts || "{}");
-        console.log('taggedProducts: ', taggedProducts);
-        if (actionType === "create") {
-
-            const metafield = new admin.rest.resources.Metafield({ session });
-            //Gán namespace, key và value cho Metafield
-            metafield.namespace = "instagram";
-            metafield.key = "gallery";
-            metafield.value = JSON.stringify({
-                taggedProducts
-            });
-            metafield.type = "json";
-            // Lưu Metafield mới
-            await metafield.save({ update: true })
-            console.log("Metafield save successfull!", metafield)
-
-            await db.gallery.update({
-                where: { id: 1 }, // 🔹 Thay id này bằng giá trị phù hợp (ví dụ: postId, userId, ...)
-                data: {
-                    taggerProducts: JSON.stringify({
-                        taggedProducts
-                    }), // Cập nhật dữ liệu nếu tồn tại
-                    galleyName:"Gallery 1",
-                    sourceId: 1,
-                },
-                // create: {
-                //     taggerProducts: JSON.stringify({
-                //         taggedProducts
-                //     }), // Tạo mới nếu không tồn tại
-                //     accountId: 10, // 🔹 Giá trị này cần thay đổi theo dữ liệu thực tế
-                // },
-            });
-            return json({
-                success: true,
-                message: "Create gallery successfully.",
-            }, { status: 200 });
-
-        } else {
-            return json({ error: "Unknown action type." }, { status: 400 });
-        }
-    } catch (error) {
-        console.error("Cannot load database!", error);
-        return json({ error: "Internal server error." }, { status: 500 });
-    }
-}
-
-export default function Source() {
-    const shopify = useAppBridge()
-    //Tắt loading khi rendered component
-    useEffect(() => {
-        shopify.loading(false)
-    }, [shopify]);
-    const fetcher = useFetcher()
+export default function GalleryTest({
+    posts,
+    productsLoader,
+    currentPost,
+    taggedProducts,
+    handleImageClick,
+    handleMouseMove,
+    handleMouseLeave,
+    handleSelectProduct,
+    handleRemoveProduct,
+    handleNextPost,
+    handlePreviousPost,
+    toggleModal,
+    active,
+    activePreviewModal,
+    handleTogglePreviewModal,
+    handleChange,
+    checked,
+    handleChangeCheck,
+    textFieldSearchProducts,
+    handleTextFieldSearchChange,
+    filteredProducts,
+    hoveredProductId,
+    setHoveredProductId,
+    popoverWidths,
+    popoverRefs,
+    getPopupPosition,
+    cursorPosition,
+    hideCursorText,
+    setHideCursorText,
+    handleSave,
+    fetcher,
+    selectedProducts,
+    isAddGallery,
+    showError,
+    handleSourceNameChange,
+    showErrorAccount,
+    galleryName,
+    setGalleryName,
+    selectedSources,
+    shopify,
+    setCreateView,
+    handleRemoveSource,
+    hasChanges,
+    title
     
-    const handleSave = async () => {
-        try {
-            // Thu thập dữ liệu từ các trạng thái
-            const actionType = "create"; // Hoặc bất kỳ hành động nào bạn cần
-            const formData = {
-                taggedProducts: JSON.stringify(taggedProducts), // Chuyển object thành JSON string
-                _action: actionType,
-            }
-            // Gửi dữ liệu tới server
-            await fetcher.submit(formData, { method: "post" });
-            shopify.loading(true)
-            console.log("Save successfull", formData);
-        } catch (error) {
-            console.error("Error save database:", error);
-            console.log("Cannot save!");
-        } finally {
-            console.log();
-        }
-    }
-
-    useEffect(() => {
-        if (fetcher.state === "loading") {
-            // Hiển thị toast khi lưu và load dữ liệu thành công
-            shopify.toast.show(fetcher.data?.message, {
-                duration: 1500,
-            })
-            // Ẩn save bar
-            shopify.loading(false) // tắt loading
-        }
-    }, [fetcher.data?.message, fetcher.state, shopify]);
-
-    const loaderData = useLoaderData(); //Lấy data từ loader
-    const posts = loaderData?.posts || [] // Data bài viết instagram
-    const productsLoader = loaderData?.products || [] // Data tất cả sản phẩm trong store
-    const gallery = loaderData?.gallery ? JSON.parse(loaderData.gallery) : {}
-    const [currentPost, setCurrentPost] = useState(null) //Lưu bài viết hiện tại để hiển thị lên modal
-    const [taggedProducts, setTaggedProducts] = useState(gallery?.taggedProducts || {}); //Lưu đối tượng chứa thông tin tag theo từng post
-    console.log('taggedProducts: ', taggedProducts);
-    const [currentIndex, setCurrentIndex] = useState(0); // Chỉ mục bài viết hiện tại
-    const [checked, setChecked] = useState(false); // Check chọn tất cả bài viết
-    const handleChangeCheck = useCallback(
-        (newChecked) => setChecked(newChecked),
-        [],
-    )
-    const [active, setActive] = useState(false); //Toggele bật tắt modal
-    const [activePreviewModal, setActivePreviewModal] = useState(false); //Toggele bật tắt preview
-    const handleTogglePreviewModal = useCallback((post) => {
-        setActivePreviewModal(!activePreviewModal); // ✅ Cập nhật trạng thái đúng cách
-        setCurrentPost(prevPost => (prevPost?.id === post.id ? prevPost : post)); // ✅ Chỉ cập nhật nếu khác
-    }, [activePreviewModal]); // ✅ Không cần dependency để tránh re-render vô tận
-
-    const toggleModal = useCallback(() => setActive((active) => !active), []);
-    const handleChange = useCallback((post) => {
-        setActive(!active)
-        setCurrentPost(prevPost => (prevPost?.id === post.id ? prevPost : post)); // ✅ Chỉ cập nhật nếu khác
-    }, [active])
-    //const [selectedProducts, setSelectedProducts] = useState([]); //Lưu danh sách sản phẩm được tag và vị trí tag
-    const selectedProducts = useMemo(() => taggedProducts[currentPost?.id] || [], [currentPost, taggedProducts]);
-    console.log('selectedProducts: ', selectedProducts);
-    const [imageClickPosition, setImageClickPosition] = useState(null);// Lưu vị trí chọn tag
-    const [cursorPosition, setCursorPosition] = useState(null); //Lưu vị trí chữ đi theo con trỏ chuột
-    const [hideCursorText, setHideCursorText] = useState(false); //Lưu trạng thái hiển thị của chữ đi theo con trỏ chuột 
-    const [textFieldSearchProducts, setTextFieldSearchProducts] = useState(""); //Xử lý input search sản phẩm
-    const handleTextFieldSearchChange = useCallback(
-        (value) => setTextFieldSearchProducts(value),
-        [],
-    );
-    //Xử lý chiều dài của popover
-    const [popoverWidths, setPopoverWidths] = useState({});
-    const popoverRefs = useRef({});
-    useEffect(() => {
-        if (selectedProducts.length === Object.keys(popoverWidths).length) return;
-        const newWidths = {};
-        Object.keys(popoverRefs.current).forEach((key) => {
-            if (popoverRefs.current[key]) {
-                newWidths[key] = popoverRefs.current[key].offsetWidth;
-            }
-        });
-        setPopoverWidths(newWidths);
-    }, [selectedProducts]); // ✅ Loại bỏ popoverWidths khỏi dependency
-
-    //Xử lý khi nhấn chọn vị trí trong ảnh
-    // const handleImageClick = (event) => {
-
-    //     const rect = event.target.getBoundingClientRect();
-    //     const x = event.clientX - rect.left;
-    //     const y = event.clientY - rect.top;
-
-    //     setImageClickPosition({ x, y });
-    //     shopify.modal.show('modal-list-producst')
-    // };
-    const handleImageClick = (event) => {
-        const img = event.target; // Ảnh mà user click vào
-        const rect = img.getBoundingClientRect();
-
-        const x = event.clientX - rect.left; // Pixel position inside the image
-        const y = event.clientY - rect.top;
-
-        // Chuyển tọa độ pixel thành phần trăm và làm tròn đến 4 chữ số thập phân
-        const xPercent = ((x / rect.width) * 100)
-        console.log('xPercent: ', xPercent);
-        const yPercent = ((y / rect.height) * 100)
-        console.log('yPercent: ', yPercent);
-
-        // Lưu vị trí theo phần trăm
-        setImageClickPosition({ x: xPercent, y: yPercent });
-
-        // Hiển thị modal chọn sản phẩm
-        shopify.modal.show('modal-list-producst');
-    };
-    //Xử lý di chuyển chuột trong ảnh
-    const handleMouseMove = (event) => {
-        if (hideCursorText) return; // Nếu chuột đang ở dot hoặc popover, không hiển thị cursor-text
-        const rect = event.target.getBoundingClientRect();
-        const x = event.clientX - rect.left;
-        const y = event.clientY - rect.top;
-
-        setCursorPosition({ x, y });
-    };
-    //Xử lý khi rời chuột khỏi ảnh
-    const handleMouseLeave = () => {
-        setCursorPosition(null);
-    };
-    //Xử lý chọn sản phẩm trong modal
-    const handleSelectProduct = (product) => {
-        //setSelectedProducts([...selectedProducts, { ...product, position: imageClickPosition }]);
-        if (!currentPost) return;
-
-        setTaggedProducts((prev) => {
-            const postId = currentPost.id;
-            const updatedProducts = [...(prev[postId] || []), { ...product, position: imageClickPosition }];
-
-            if (JSON.stringify(prev[postId]) === JSON.stringify(updatedProducts)) {
-                return prev; // Trả về state cũ nếu không có thay đổi thực sự
-            }
-
-            return {
-                ...prev,
-                [postId]: updatedProducts,
-            };
-        });
-
-        shopify.modal.hide('modal-list-producst')
-    };
-    //Xử lý hiển thị popover khi hover vào dot
-    const getPopupPosition = (dotX, dotY, popWidth) => {
-
-        const popupWidth = popWidth;  // Chiều rộng của popup
-        const popupHeight = 80;  // Chiều cao của popup
-        const offset = 10;       // Khoảng cách giữa dot và popup
-        const imgWidth = 400;    // Chiều rộng của ảnh
-        const imgHeight = 400;   // Chiều cao của ảnh
-        let left = popupWidth / 2;
-        let top = 2;
-        let arrow = null;
-        //Các vị trí cần chỉnh sửa
-        //trái -> dotX < popupWidth / 2; 
-        if (dotX < popupWidth / 2) {
-            left = 0
-            top = 2
-            arrow = 1
-        }
-        //phải -> imgWidth - popupWidth / 2;
-        if (dotX > (imgWidth - popupWidth / 2)) {
-            left = popupWidth - 4
-            top = 2
-            arrow = popupWidth - 26
-        }
-        //dưới -> imgHeight - popupHeight
-        if (dotY > (imgHeight - popupHeight)) { top = -80 }
-        return { left, top, arrow };
-    };
-
-    //Lọc danh sách sản phẩm dựa trên từ khóa tìm kiếm
-    const filteredProducts = useMemo(() => {
-        const searchTerm = textFieldSearchProducts?.toLowerCase().trim();
-        return productsLoader.nodes.filter((product) =>
-            product.title.toLowerCase().includes(searchTerm)
-        );
-    }, [textFieldSearchProducts, productsLoader]);
-    //Xử lý hover vào item
-    const [hoveredProductId, setHoveredProductId] = useState(null);
-    //Xử lý xóa item tag khỏi danh sách chọn
-    const handleRemoveProduct = (productId) => {
-        //setSelectedProducts((prevProducts) => prevProducts.filter((item) => item.id !== productId));
-        if (!currentPost) return;
-
-        setTaggedProducts((prev) => {
-            const postId = currentPost.id;
-            const updatedProducts = prev[postId]?.filter((item) => item.id !== productId) || [];
-
-            return {
-                ...prev,
-                [postId]: updatedProducts,
-            };
-        });
-    };
-    //
-    const handleNextPost = () => {
-        if (currentIndex < posts.media.data.length - 1) {
-            const newIndex = currentIndex + 1;
-            setCurrentIndex(newIndex);
-            setCurrentPost(posts.media.data[newIndex]);
-        }
-    };
-
-    const handlePreviousPost = () => {
-        if (currentIndex > 0) {
-            const newIndex = currentIndex - 1;
-            setCurrentIndex(newIndex);
-            setCurrentPost(posts.media.data[newIndex]);
-        }
-    };
+}) {
 
     return (
         <>
             <Page
-                backAction={{ content: 'Products', url: '/app/source' }}
-                title="Edit Media Source"
+                backAction={{
+                    content: 'Products',
+                    url: '/app/gallery',
+                    onAction: (e) => {
+                        if (hasChanges) {
+                            e.preventDefault();
+                            shopify.saveBar.leaveConfirmation();
+                        }
+                        else {
+                            setCreateView(false);
+                            shopify.saveBar.hide('my-save-bar');
+                        }
+                    }
+                }}
+                title={isAddGallery ? "Add new gallery" : "Edit gallery"}
             >
                 <div>
                     <InlineGrid gap="400" columns={['oneThird', 'twoThirds']}>
@@ -381,50 +102,138 @@ export default function Source() {
                                 </Text>
                             </Box>
                             <Divider borderColor="border" />
-                            {/**Code ở đây */}
+                            {isAddGallery ? (
+                                <div>
+                                    <Box padding={400}>
+                                        <BlockStack gap={400}>
+                                            <TextField
+                                                label="Name this gallery"
+                                                error={showError.error && showError.message}
+                                                value={galleryName}
+                                                onChange={handleSourceNameChange}
+                                                placeholder="Please enter..."
+                                                autoComplete="off"
+                                            />
+                                            <InlineStack align="space-between">
+                                                <Text variant="bodyMd" as="h6">Select media source(s)</Text>
+                                                <Text variant="bodyMd" as="h6">0/1</Text>
+                                            </InlineStack>
+                                            {posts?.media?.data.length > 0 ? (
+                                                <Box padding="300" borderColor='border' borderWidth="025" borderRadius="300">
+                                                    <InlineStack align='space-between' blockAlign='center'>
+                                                        <InlineStack gap={200} blockAlign='center'>
+                                                            <div className="instagram-icon">
+                                                                <Icon source={LogoInstagramIcon} />
+                                                            </div>
+                                                            <BlockStack>
+                                                                <div className="source-name">{selectedSources[0]}</div>
+                                                                <div className="items-count">{posts?.media?.data.length} items</div>
+                                                            </BlockStack>
+                                                        </InlineStack>
+                                                        <div onClick={() => {
+                                                            handleRemoveSource(); console.log("click in icon");
+                                                        }} className="icon-delete" style={{ cursor: 'pointer' }}>
+                                                            <Icon tone="critical" source={DeleteIcon} />
+                                                        </div>
+                                                    </InlineStack>
+                                                </Box>
+                                            ) : (
+                                                <Button onClick={() => shopify.modal.show('my-modal')} icon={PlusIcon}>Select media source</Button>
+                                            )}
+                                            {showErrorAccount.error && <InlineError message={showErrorAccount.message} />}
+                                        </BlockStack>
+                                    </Box>
+                                </div>
+                            ) : (
+                                <div>
+                                    <Box padding={400}>
+                                        <BlockStack gap={400}>
+                                            <TextField
+                                                label="Name this gallery"
+                                                error={showError.error && showError.message}
+                                                value={galleryName}
+                                                onChange={handleSourceNameChange}
+                                                placeholder="Please enter..."
+                                                autoComplete="off"
+                                            />
+                                            <InlineStack align="space-between">
+                                                <Text variant="bodyMd" as="h6">Select media source(s)</Text>
+                                                <Text variant="bodyMd" as="h6">0/1</Text>
+                                            </InlineStack>
+                                            {posts?.media?.data.length > 0 ? (
+                                                <Box padding="300" borderColor='border' borderWidth="025" borderRadius="300">
+                                                    <InlineStack align='space-between' blockAlign='center'>
+                                                        <InlineStack gap={200} blockAlign='center'>
+                                                            <div className="instagram-icon">
+                                                                <Icon source={LogoInstagramIcon} />
+                                                            </div>
+                                                            <BlockStack>
+                                                                <div className="source-name">{selectedSources[0]}</div>
+                                                                <div className="items-count">{posts?.media?.data.length} items</div>
+                                                            </BlockStack>
+                                                        </InlineStack>
+                                                        <div onClick={() => {
+                                                            handleRemoveSource(); console.log("click in icon");
+                                                        }} className="icon-delete" style={{ cursor: 'pointer' }}>
+                                                            <Icon tone="critical" source={DeleteIcon} />
+                                                        </div>
+                                                    </InlineStack>
+                                                </Box>
+                                            ) : (
+                                                <Button onClick={() => shopify.modal.show('my-modal')} icon={PlusIcon}>Select media source</Button>
+                                            )}
+                                            {showErrorAccount.error && <InlineError message={showErrorAccount.message} />}
+                                        </BlockStack>
+                                    </Box>
+                                </div>
+                            )}
+
                         </Card>
 
                         <Card padding="0">
                             <Box padding="400">
                                 <Text variant="headingLg" as="h5">
-                                    Preview sourse
+                                    Preview gallery
                                 </Text>
                             </Box>
                             <Divider borderColor="border" />
-                            <Box padding="400">
-                                <Checkbox
-                                    label="Select all"
-                                    checked={checked}
-                                    onChange={handleChangeCheck}
-                                />
-                            </Box>
-                            <Scrollable style={{ height: 'calc(-220px + 100vh)' }}>
-                                <div className="list-media-source">
-                                    {posts?.media?.data.map((post, index) => {
-                                        const taggedCount = taggedProducts[post.id]?.length || 0; // Số lượng sản phẩm đã tag
-                                        return (
-                                            <div
-                                                key={index}
-                                                onClick={(e) => {
-                                                    handleTogglePreviewModal(post);
-                                                    e.stopPropagation();
-                                                }}
-                                                style={{ backgroundImage: `url(${post.media_url})` }}
-                                                className="list-media-source-item"
-                                            >
-                                                <div className="list-media-source-item-tag">
-                                                    <Button onClick={(e) => { handleChange(post); e.stopPropagation(); }}>Tag product ({taggedCount})</Button>
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
 
-                                </div>
+                            <Scrollable style={{ height: 'calc(-220px + 100vh)' }}>
+                                {posts?.media?.data.length > 0 ? (
+                                    <div className="list-media-source">
+                                        {posts?.media?.data?.map((post, index) => {
+                                            const taggedCount = taggedProducts[post.id]?.length || 0; // Số lượng sản phẩm đã tag
+                                            return (
+                                                <div
+                                                    key={index}
+                                                    onClick={(e) => {
+                                                        handleTogglePreviewModal(post);
+                                                        e.stopPropagation();
+                                                    }}
+                                                    style={{ backgroundImage: `url(${post.media_url})` }}
+                                                    className="list-media-source-item"
+                                                >
+                                                    <div className="list-media-source-item-tag">
+                                                        <Button onClick={(e) => { handleChange(post); e.stopPropagation(); }}>Tag product ({taggedCount})</Button>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+
+                                    </div>
+                                ) : (
+                                    <EmptyState
+                                        heading="There are no items to show"
+                                        image="https://cdn.shopify.com/s/files/1/0262/4071/2726/files/emptystate-files.png"
+                                    >
+                                        <p>Please try another source</p>
+                                    </EmptyState>
+                                )}
                             </Scrollable>
                         </Card>
                     </InlineGrid>
                 </div>
-            </Page>
+            </Page >
 
             <Modal
                 size="large"
@@ -433,8 +242,8 @@ export default function Source() {
                 title="Tag products"
                 primaryAction={{
                     content: 'Confirm',
-                    onAction: handleSave,
-                    loading: fetcher.state === "submitting"
+                    onAction: toggleModal,
+                    // loading: fetcher?.state === "submitting"
                 }}
                 secondaryActions={[
                     {
@@ -472,7 +281,7 @@ export default function Source() {
                                     Click to tag a product
                                 </div>
                             )} */}
-                            {selectedProducts.map((item, index) => {
+                            {selectedProducts?.map((item, index) => {
                                 const popoverWidth = popoverWidths[index] || 0; // Lấy width từ state
 
                                 const { left, top, arrow } = getPopupPosition(item.position.x, item.position.y, popoverWidth);
@@ -497,7 +306,6 @@ export default function Source() {
                                             backgroundColor: "red",
                                             borderRadius: "50%",
                                             transform: "translate(-50%, -50%)",
-                                          
                                         }}
                                     >
                                         <div
@@ -522,12 +330,12 @@ export default function Source() {
                         </div>
                         <div className="modal-tag-content-wrapper">
                             <div className="modal-tag-content-wrapper-header">
-                                <div style={{ backgroundImage: `url(${posts.profile_picture_url})` }} className="modal-tag-content-wrapper-header-avatar">
+                                <div style={{ backgroundImage: `url(${posts?.profile_picture_url})` }} className="modal-tag-content-wrapper-header-avatar">
                                 </div>
-                                <div className="modal-tag-content-wrapper-header-username">{posts.username}</div>
+                                <div className="modal-tag-content-wrapper-header-username">{posts?.username}</div>
                             </div>
                             <div className="modal-tag-content-wrapper-products">
-                                {selectedProducts.map((product) => (
+                                {selectedProducts?.map((product) => (
                                     <div
                                         key={product.id}
                                         className="modal-tag-content-wrapper-products-item"
@@ -548,7 +356,7 @@ export default function Source() {
                                         </InlineStack>
                                     </div>
                                 ))}
-                                {selectedProducts.length === 0 && (
+                                {selectedProducts?.length === 0 && (
                                     <p style={{ textAlign: "center", marginTop: "10px", color: "gray" }}>
                                         *Note: Click anywhere in the image on the left to tag a product
                                     </p>
@@ -588,9 +396,9 @@ export default function Source() {
 
                     <Scrollable shadow style={{ height: '220px', marginBlockStart: '8px' }} focusable>
                         <BlockStack gap="300">
-                            {filteredProducts.map((product) => {
+                            {filteredProducts?.map((product) => {
                                 // Kiểm tra xem sản phẩm đã được chọn chưa
-                                const isSelected = selectedProducts.some((item) => item.id === product.id);
+                                const isSelected = selectedProducts?.some((item) => item.id === product.id);
 
                                 return (
                                     <div
@@ -626,7 +434,7 @@ export default function Source() {
 
 
                             {/* Hiển thị thông báo nếu không tìm thấy sản phẩm */}
-                            {filteredProducts.length === 0 && (
+                            {filteredProducts?.length === 0 && (
                                 <p style={{ textAlign: "center", marginTop: "10px", color: "gray" }}>
                                     No products found
                                 </p>
@@ -640,12 +448,12 @@ export default function Source() {
                 size="large"
                 open={activePreviewModal}
                 onClose={handleTogglePreviewModal}
-            >
+            >   
                 <div className='modal'>
                     <div className='modal-left'>
-                        <div style={{position:'relative',height:'fit-content',maxHeight:'100%',display:'flex'}}>
+                        <div style={{ position: 'relative', height: 'fit-content', maxHeight: '100%', display: 'flex' }}>
                             <img className='modal-left-media' src={currentPost?.media_url} alt="" />
-                            {selectedProducts.map((item, index) => {
+                            {selectedProducts?.map((item, index) => {
                                 const popoverWidth = popoverWidths[index] || 0; // Lấy width từ state
 
                                 const { left, top, arrow } = getPopupPosition(item.position.x, item.position.y, popoverWidth);
@@ -730,7 +538,7 @@ export default function Source() {
                                     <Scrollable style={{ height: "calc(-260px + 100vh)" }} >
                                         <div>{currentPost?.caption}</div>
                                         <div className="popup-detail-shoppable-grid">
-                                            {selectedProducts.map((product, index) => (
+                                            {selectedProducts?.map((product, index) => (
                                                 <div
                                                     key={index}
                                                     className="popup-detail-shoppable-item"

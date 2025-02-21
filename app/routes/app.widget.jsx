@@ -53,8 +53,10 @@ export async function loader({ request }) {
     const accountName = account?.accountName
 
     const widget = await db.widgetSetting.findMany({
-        
+
     })
+    const gallerys = await db.gallery.findMany({})
+
     if (accessToken) {
         try {
             const response = await axios.get('https://graph.instagram.com/me', {
@@ -65,7 +67,7 @@ export async function loader({ request }) {
             });
 
             const posts = response?.data;
-            return json({ posts, accountName, widget });
+            return json({ posts, accountName, widget, gallerys });
 
         } catch (error) {
             console.error('Lỗi khi lấy bài viết:', error.response?.data || error.message);
@@ -89,7 +91,6 @@ export const action = async ({ request, params }) => {
         const widgetId = formData?.widgetId && !isNaN(parseInt(formData.widgetId, 10))
             ? parseInt(formData.widgetId, 10)
             : 0; // Giá trị mặc định
-        console.log('widgetId: ', widgetId);
         const widgetName = formData?.widgetName?.toString() ?? "";
         const gallary = formData?.gallary?.toString() ?? "";
         const widgetTemplate = formData?.widgetTemplate?.toString() ?? "";
@@ -127,11 +128,13 @@ export const action = async ({ request, params }) => {
 
         if (actionType === "create") {
 
-            //Tìm account ứng với setting cần lưu
-            // const galleryForSetting = await db.gallery.findFirst({
-            //     where: { galleryName: gallary },
-            // });
-    
+            //Tìm gallery ứng với widget cần lưu
+            const gallery = await db.gallery.findFirst({
+                where: {
+                    galleyName: gallary
+                }
+            })
+
 
             //tìm xem có bản ghi nào trước đó trong database chưa
             const existingSetting = await db.widgetSetting.findFirst({
@@ -207,10 +210,16 @@ export const action = async ({ request, params }) => {
                     console.error("Error saving updated Metafield:", error);
                 }
 
+                //Bổ sung galleryid
+                const addGalleryIdToSettingData = {
+                    ...updatedSettingMetafield,
+                    galleryId: gallery.id
+                }
+
                 // Nếu đã tồn tại, cập nhật bản ghi hiện tại
                 const updatedSetting = await db.widgetSetting.update({
                     where: { id: existingSetting.id }, // Cập nhật bằng id (unique)
-                    data: updatedSettingMetafield,
+                    data: addGalleryIdToSettingData,
                 });
 
                 console.log("Update successfull!", updatedSetting);
@@ -280,7 +289,7 @@ export const action = async ({ request, params }) => {
                         numberOfRows: numberOfRows,
                         paddingImg: paddingImg,
                         borderImg: borderImg,
-                        galleryId: 1,
+                        galleryId: gallery.id,
                         widgetLayout: widgetLayout
                     },
                 });
@@ -349,6 +358,7 @@ export default function TabsWithTablesExample() {
     const loaderData = useLoaderData()
     const posts = loaderData?.posts || [] // Biến lưu thông tin bài viết
     const widget = loaderData?.widget || [] // Biến lưu thông tin mảng setting
+    const gallerys = loaderData?.gallerys || []
     const [searchParams] = useSearchParams()
     const modalId = searchParams.get("id")
     const fetcher = useFetcher()
@@ -456,7 +466,7 @@ export default function TabsWithTablesExample() {
         [showError]
     );
     //Xử lý input select
-    const [selectedSelect, setSelectedSelect] = useState('default');
+    const [selectedSelect, setSelectedSelect] = useState(gallerys[0].galleyName);
     const handleSelectChange = useCallback(
         (value) => {
             setSelectedSelect(value);
@@ -844,7 +854,7 @@ export default function TabsWithTablesExample() {
                                     label="Gallery"
                                     options={[
                                         { label: 'Select gallery', value: 'default', disabled: true },
-                                        { label: posts?.username, value: posts?.username },
+                                        ...gallerys.map(gallery => ({ label: gallery.galleyName, value: gallery.galleyName }))
                                     ]}
                                     onChange={handleSelectChange}
                                     value={selectedSelect}
@@ -1493,7 +1503,7 @@ export default function TabsWithTablesExample() {
                                                     active={popoverActiveHotspotHover}
                                                     activator={
                                                         <div className="color-picker-main" onClick={togglePopoverActiveHotspotHover}>
-                                                            <div className="color-picker-main-picked" style={{minWidth:"100px"}}>
+                                                            <div className="color-picker-main-picked" style={{ minWidth: "100px" }}>
                                                                 <div className="color-picker-main-picked-color" style={{ background: valueHotspotHover }}></div>
                                                                 <div className="color-picker-main-picked-hex">{valueHotspotHover}</div>
                                                             </div>
@@ -1639,7 +1649,20 @@ export default function TabsWithTablesExample() {
         );
 
         return (
-            <IndexTable.Row onClick={() => { setActiveStep1(0); shopify.modal.show('my-modal'); navigate(`?id=${id}`); setCurrentIdWidget(id); defaultForm(id); resetForm(id); setPreviewShoping(true) }} id={id} key={id} selected={selectedResources.includes(id)} position={index}>
+            <IndexTable.Row
+                onClick={() => {
+                    setActiveStep1(0); shopify.modal.show('my-modal');
+                    navigate(`?id=${id}`);
+                    setCurrentIdWidget(id);
+                    defaultForm(id);
+                    resetForm(id);
+                    setPreviewShoping(true)
+                }}
+                id={id}
+                key={id}
+                selected={selectedResources.includes(id)}
+                position={index}
+            >
                 <IndexTable.Cell>
                     <Text variant="bodyMd" fontWeight="bold" as="span">
                         {name}
@@ -1785,7 +1808,7 @@ export default function TabsWithTablesExample() {
                     <Tabs tabs={tabs} selected={selected} onSelect={handleTabChange} >
                         <LegacyCard.Section>
                             <IndexTable
-                                
+
                                 resourceName={resourceName}
                                 itemCount={tableData[selected].length}
                                 selectedItemsCount={allResourcesSelected ? "All" : selectedResources.length}

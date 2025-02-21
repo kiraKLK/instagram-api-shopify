@@ -225,45 +225,6 @@ export default function Source() {
         [],
     )
 
-    const [selectedProducts, setSelectedProducts] = useState([]);
-    const [productModalOpen, setProductModalOpen] = useState(false);
-    const [imageClickPosition, setImageClickPosition] = useState(null);
-    const [cursorPosition, setCursorPosition] = useState(null);
-    const [textFieldSearchProducts, setTextFieldSearchProducts] = useState();
-    const handleTextFieldSearchChange = useCallback(
-        (value) => setTextFieldSearchProducts(value),
-        [],
-    );
-
-
-    const handleImageClick = (event) => {
-        const rect = event.target.getBoundingClientRect();
-        const x = event.clientX - rect.left;
-        const y = event.clientY - rect.top;
-        shopify.modal.show('modal-list-producst')
-        setImageClickPosition({ x, y });
-        //setProductModalOpen(true);
-        console.log("Mở modal chọn sản phẩm");
-    };
-
-    const handleMouseMove = (event) => {
-        const rect = event.target.getBoundingClientRect();
-        const x = event.clientX - rect.left;
-        const y = event.clientY - rect.top;
-
-        setCursorPosition({ x, y });
-    };
-
-    const handleMouseLeave = () => {
-        setCursorPosition(null);
-    };
-
-    const handleSelectProduct = (product) => {
-        setSelectedProducts([...selectedProducts, { ...product, position: imageClickPosition }]);
-        setProductModalOpen(false);
-        shopify.modal.hide('modal-list-producst')
-    };
-
     if (!loaderData) {
         return (
             <>

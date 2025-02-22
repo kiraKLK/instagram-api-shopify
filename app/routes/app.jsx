@@ -58,6 +58,8 @@ export default function App() {
         <Link to="/app/source" onClick={(event) => handleClick(event, "/app/source")}>Media source</Link>
         <Link to="/app/gallery" onClick={(event) => handleClick(event, "/app/gallery")}>Gallery</Link>
         <Link to="/app/widget" onClick={(event) => handleClick(event, "/app/widget")}>Widget</Link>
+        <Link to="/app/widget-test" onClick={(event) => handleClick(event, "/app/widget-test")}>Widget Test</Link>
+
       </NavMenu>
       <Outlet context={{ apiKey, host }} />
     </AppProvider>

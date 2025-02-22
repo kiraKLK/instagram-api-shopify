@@ -55,6 +55,20 @@ export async function loader({ request }) {
 
 }
 
+/**
+ *  setting {
+ *  settingData : {
+ *      ....
+ *  },
+ *  gallery: {
+ *  tagger,
+ * sourceName
+ * }
+ * source:accessToken
+ * }
+ * 
+ */
+
 export async function action({ request }) {
     const { admin, session } = await authenticate.admin(request);
     const formData = Object.fromEntries(await request.formData());
@@ -64,9 +78,50 @@ export async function action({ request }) {
     const idToDelete = formData?.idToDelete ? formData.idToDelete.split(',').map(Number) : [];
     const actionType = formData?._action?.toString() ?? "";
 
+    //Tìm metafield đã tồn tại
+    const metafield = await admin.rest.resources.Metafield.all({
+        session,
+        namespace: "instagram",
+        key: "gallery"
+    });
+    //Tạo mảng chứa các đối tượng setting trong metafield
+    let currentArrayGallery = [];
+    try {
+        // Parse giá trị từ Metafield, đảm bảo thành mảng
+        const parsedValue = JSON.parse(metafield.data[0]?.value || "[]");
+        if (Array.isArray(parsedValue)) {
+            currentArrayGallery = parsedValue;
+        } else {
+            console.warn("Parsed value is not an array, resetting to empty array.");
+            currentArrayGallery = [];
+        }
+    } catch (error) {
+        console.error("Error parsing Metafield value:", error);
+        currentArrayGallery = [];
+    }
+    console.log("Current settings before update:", currentArrayGallery);
+
     try {
         switch (actionType) {
             case "create": {
+
+                const newGallery = {
+                    galleryName,
+                    taggedProducts,
+                    sourceName,
+                }
+
+                const metafield = new admin.rest.resources.Metafield({ session });
+                //Gán namespace, key và value cho Metafield
+                metafield.namespace = "instagram";
+                metafield.key = "gallery";
+                metafield.value = JSON.stringify({
+                    taggedProducts
+                });
+                metafield.type = "json";
+                // Lưu Metafield mới
+                await metafield.save({ update: true })
+
                 const source = await db.source.findFirst({
                     where: {
                         sourceName: sourceName
@@ -228,12 +283,14 @@ export default function PageExample() {
                     })
                     shopify.saveBar.hide('my-save-bar');
                     setCreateView(false)
+                    break
                 }
                 case "Delete gallery successfully.": {
                     clearSelection();
                     shopify.toast.show(fetcher.data?.message, { duration: 2500 });
                     shopify.modal.hide('modal-confirm-delete');
                     shopify.modal.hide('modal-confirm-delete-sub');
+                    break
                 }
                 case "Delete gallery failed.": {
                     shopify.modal.hide('modal-confirm-delete');
@@ -330,7 +387,7 @@ export default function PageExample() {
         plural: 'orders',
     };
 
-    const { selectedResources, allResourcesSelected, handleSelectionChange,clearSelection } =
+    const { selectedResources, allResourcesSelected, handleSelectionChange, clearSelection } =
         useIndexResourceState(orders);
     // State để quản lý Popover được mở
     const [activePopoverId, setActivePopoverId] = useState(null);
@@ -896,11 +953,11 @@ export default function PageExample() {
                                                         </span>
                                                         <span className="label">Widget:</span>
                                                         <span className="name"> {widget.widgetName}</span>
-                                                        
-                                                            <span onClick={() => handleDeleteById("widget", widget.id)} style={{ marginLeft: '8px' }} className="button-delete">
-                                                                <img src="https://widget.onecommerce.io/assets/delete-icon-tqm6UhHJ.svg" alt="" />
-                                                            </span>
-                                                        
+
+                                                        <span onClick={() => handleDeleteById("widget", widget.id)} style={{ marginLeft: '8px' }} className="button-delete">
+                                                            <img src="https://widget.onecommerce.io/assets/delete-icon-tqm6UhHJ.svg" alt="" />
+                                                        </span>
+
                                                     </li>
                                                 </ul>
                                             ))}

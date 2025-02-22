@@ -3,6 +3,46 @@
 {% assign current_setting = shop.metafields.instagram.current_setting.value %}
 {% assign gallery = shop.metafields.instagram.gallery.value %}
 {% assign is_design_mode = request.design_mode %}
+{% assign meta_setting_data = shop.metafields.custom.account_data.value %}
+
+<script>
+    const meta_data = {{ meta_setting_data | json }}
+    let widgetSettings_0 = [];
+    let accessToken_0 = '';
+    let taggerProducts_0 = '';
+
+  let widgetSettings = [];
+  try {
+      if (meta_data.accounts) {
+        meta_data.accounts.forEach(account => {
+              if (account.sources) {
+                  account.sources.forEach(source => {
+                      if (source.galleries) {
+                          source.galleries.forEach(gallery => {
+                              if (gallery.widgetSettings) {
+                                  widgetSettings = widgetSettings.concat(gallery.widgetSettings);
+                              }
+                          });
+                      }
+                  });
+              }
+          });
+      }
+  } catch (error) {
+      console.error("Error parsing meta_data:", error);
+  }
+  setTimeout(() => {
+    console.log("🚀 ~ widgetSettings:", widgetSettings);
+    const select = document.getElementById('widget-selector');
+    console.log("🚀 ~ select:", select);
+    widgetSettings.forEach((widget, index) => {
+      const option = document.createElement('option');
+      option.value = index;
+      option.textContent = widget.widgetName;
+      document.getElementById('widget-selector').appendChild(option);
+    });
+  }, 1000); // Delay for 1 second
+</script>
 
 {% if is_design_mode %}
   {% if setting %}
@@ -19,9 +59,6 @@
       <div class="custom-select">
         <select name="" id="widget-selector">
           <option selected disabled value="">Choose the widget to show</option>
-          {% for set in setting %}
-            <option value="{{ forloop.index0 }}">{{ set.widgetName }}</option>
-          {% endfor %}
         </select>
         <img
           src="https://cdn.shopify.com/extensions/595168bb-2109-4602-ab68-4552b64e4fec/socialwidget-instafeed-58/assets/52e1a7d874a24a770e1273ad9f27dead.svg"
@@ -74,6 +111,7 @@
 {% endif %}
 
 <script>
+  let selectedSetting = null
   //BEGIN logic case 4 Slider
   let slideIndex = 1;
  function plusSlides(n) {
@@ -136,33 +174,64 @@
     }
     //Lấy phần tử html
     const selector = document.getElementById("widget-selector");
-    console.log('selector: ', selector);
+    console.log("🚀 ~ selector:", selector)
     const gallery = document.getElementById("instagram-gallery");
-    console.log('gallery: ', gallery);
-
     if (!gallery) {
       console.error("Required DOM elements are missing.");
       return;
     }
 
     // Lấy giá trị đã lưu từ localStorage
-    const savedSelection = localStorage.getItem("selected_widget");
-    if (savedSelection !== null && !isNaN(parseInt(savedSelection, 10))) {
-      const selectedIndex = parseInt(savedSelection, 10);
-      console.log('settings[selectedIndex]: ', settings[selectedIndex]);
-      if (settings[selectedIndex]) {
-        
-        selector.value = selectedIndex;
-        applySetting(settings[selectedIndex]);
-      } else {
-        console.warn("Saved selection is out of range.");
-      }
-    }
+    setTimeout(() => {
+        const savedSelection = localStorage.getItem("selected_widget");
+        console.log("🚀 ~ savedSelection:", savedSelection);
+        if (savedSelection !== null && !isNaN(parseInt(savedSelection, 10))) {
+            const selectedIndex = parseInt(savedSelection, 10);
+            console.log("🚀 ~ selectedIndex:", selectedIndex);
+    
+            if (widgetSettings[selectedIndex]) {
+                console.log("🚀 ~ widgetSettings[selectedIndex]:", widgetSettings[selectedIndex]);
+                selectedSetting = widgetSettings[selectedIndex];
+                console.log("🚀 ~ selectedSetting:", selectedSetting)
+                meta_data.accounts.forEach(account => {
+                  account.sources.forEach(source => {
+                    source.galleries.forEach(gallery => {
+                      widgetSettings_0 = widgetSettings.concat(gallery.widgetSettings);
+                      if(gallery.id === selectedSetting.galleryId) {
+                        accessToken_0 = account.accessToken;
+                        taggerProducts_0 = gallery.taggerProducts;
+                      }
+                    })
+                  })
+                })
+    
+                selector.value = savedSelection;
+                applySetting(widgetSettings[selectedIndex]);
+            } else {
+                console.warn("Saved selection is out of range.");
+            }
+        }
+    }, 2000); // Delay for 2 seconds
     // Gắn bộ lắng nghe vào thẻ select kích hoạt khi select thay đổi
     selector.addEventListener("change", function () {
       const selectedIndex = parseInt(this.value, 10);
       //Lấy ra setting được chọn
-      const selectedSetting = settings[selectedIndex];
+       selectedSetting = widgetSettings[selectedIndex];
+      console.log("🚀 ~ selectedSetting:", selectedSetting)
+      meta_data.accounts.forEach(account => {
+        account.sources.forEach(source => {
+          source.galleries.forEach(gallery => {
+            widgetSettings_0 = widgetSettings.concat(gallery.widgetSettings);
+            if(gallery.id === selectedSetting.galleryId) {
+              accessToken_0 = account.accessToken;
+              taggerProducts_0 = gallery.taggerProducts;
+            }
+          })
+        })
+      })
+
+      console.log("🚀 ~ accessToken:", accessToken_0);
+    console.log("🚀 ~ taggerProducts:", JSON.parse(taggerProducts_0));
 
       if (selectedSetting) {
         // Lưu giá trị vào localStorage
@@ -1193,7 +1262,7 @@
     const productTitle = document.getElementById('product-title');
     const productPrice = document.getElementById('product-price');
     const imageContainer = document.querySelector('.modal-content-left-wrapper');
-    document.querySelector('.hotspot-popover-redirect').href = `products/${dotData.handle}`
+    document.querySelector('.hotspot-popover-redirect').href = `products/${dotData.handle}`;
 
     productTitle.textContent = dotData.title;
     productPrice.textContent = dotData.variants.edges[0].node.price;
@@ -1283,9 +1352,15 @@
 <!-- Logic JS -->
 <script>
   window.onload = async function () {
+    
+
+
     const accessToken = '{{ access_token.longLivedAccessToken }}';
     const galleryJson = {{ gallery | json }}
+  
+    console.log("🚀 ~ galleryJson:", galleryJson)
     
+    console.log("🚀 ~ meta_data:", meta_data)
     if (!accessToken) {
       console.error('Access token is required.');
       return;
@@ -1478,7 +1553,12 @@
         const productContainer = document.getElementById('popup-detail-shoppable-grid-id');
         productContainer.innerHTML = '';
 
-        const postGalleryData = galleryJson.taggedProducts[postId] || []; // Lấy dữ liệu dot theo ID
+        let test = JSON.parse(taggerProducts_0)
+
+       // const postGalleryData = galleryJson.taggedProducts[postId] || []; // Lấy dữ liệu dot theo ID
+        const postGalleryData = test[postId] || []; // Lấy dữ liệu dot theo ID
+        console.log("🚀 ~ loadDotsForPost ~ postGalleryData:", postGalleryData)
+
         postGalleryData.forEach(dot => {
             const dotElement = document.createElement('div');
             dotElement.className = 'dot';

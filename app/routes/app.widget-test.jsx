@@ -86,143 +86,124 @@ export const action = async ({ request, params }) => {
         // Chuyển đổi formData thành đối tượng
         const formData = Object.fromEntries(await request.formData());
         const actionType = formData._action;
-        // Lấy dữ liệu từ formData
-        //Kiểm tra nếu widgetId được gửi lên là undefine thì đặt giá trị = 0
         const widgetId = formData?.widgetId && !isNaN(parseInt(formData.widgetId, 10))
             ? parseInt(formData.widgetId, 10)
-            : 0; // Giá trị mặc định
+            : 0;
         const widgetName = formData?.widgetName?.toString() ?? "";
         const gallary = formData?.gallary?.toString() ?? "";
         const widgetTemplate = formData?.widgetTemplate?.toString() ?? "";
         const numberOfColumns = parseInt(formData?.numberOfColumns?.toString() ?? "1", 10);
         const numberOfRows = parseInt(formData?.numberOfRows?.toString() ?? "1", 10);
-        const accountName = formData?.accountName?.toString() ?? "";
         const borderImg = parseInt(formData?.borderImg?.toString() ?? "1", 10);
         const paddingImg = parseInt(formData?.paddingImg?.toString() ?? "0", 10);
         const widgetLayout = parseInt(formData?.widgetLayout?.toString() ?? "1", 10);
+        const widgetIds = formData?.ids?.split(',').map(Number);
 
-        const widgetIds = formData?.ids?.split(',').map(Number) // Chuyển 1 chuỗi số cách nhau bằng dấu , thành Int[]
-
-        // const [widget, gallery, source, account] = await Promise.all([
-        //     db.widgetSetting.findFirst({ where: { id: widgetId } }),
-        //     db.gallery.findFirst({ where: { id: widget.galleryId } }),
-        //     db.source.findFirst({ where: { id: gallery.sourceId } }),
-        //     db.account.findFirst({ where: { id: source.accountId } })
-        // ]);
-
-        // const metafieldData = {
-        //     namespace: 'custom',
-        //     key: 'account_data',
-        //     value: JSON.stringify({
-        //         account: {
-        //             id: account.id,
-        //             accessToken: account.accessToken,
-        //             accountName: account.accountName,
-        //             sources: [
-        //                 {
-        //                     id: source.id,
-        //                     sourceName: source.sourceName,
-        //                     items: source.items,
-        //                     accountId: source.accountId, // Thêm accountId vào Source
-        //                     galleries: [
-        //                         {
-        //                             id: gallery.id,
-        //                             galleryName: gallery.galleyName,
-        //                             taggerProducts: gallery.taggerProducts,
-        //                             sourceId: gallery.sourceId, // Thêm sourceId vào Gallery
-        //                             widgetSettings: [
-        //                                 {
-        //                                     id: widget.id,
-        //                                     widgetName: widget.widgetName,
-        //                                     gallery: widget.gallary,
-        //                                     widgetTemplate: widget.widgetTemplate,
-        //                                     numberOfColumns: widget.numberOfColumns,
-        //                                     numberOfRows: widget.numberOfRows,
-        //                                     paddingImg: widget.paddingImg,
-        //                                     borderImg: widget.borderImg,
-        //                                     widgetLayout: widget.widgetLayout,
-        //                                     galleryId: widget.galleryId, // Thêm galleryId vào WidgetSetting
-
-        //                                 }
-        //                             ]
-        //                         }
-        //                     ]
-        //                 }
-        //             ]
-        //         }
-        //     }),
-        //     type: 'json'
-        // };
-
-        //Tìm metafield đã tồn tại
-        const metafield = await admin.rest.resources.Metafield.all({
+        // Tìm metafield đã tồn tại
+        const metafields = await admin.rest.resources.Metafield.all({
             session,
-            namespace: "instagram",
-            key: "setting"
+            namespace: "custom",
+            key: "account_data"
         });
-        console.log("🚀 ~ action ~ metafield:", metafield)
-        //Tạo mảng chứa các đối tượng setting trong metafield
-        let currentSettings = [];
-        try {
-            // Parse giá trị từ Metafield, đảm bảo thành mảng
-            const parsedValue = JSON.parse(metafield.data[0]?.value || "[]");
-            if (Array.isArray(parsedValue)) {
-                currentSettings = parsedValue;
-            } else {
-                console.warn("Parsed value is not an array, resetting to empty array.");
-                currentSettings = [];
-            }
-        } catch (error) {
-            console.error("Error parsing Metafield value:", error);
-            currentSettings = [];
+
+        let currentSettings = { accounts: [] };
+        if (metafields.data.length > 0) {
+            currentSettings = JSON.parse(metafields.data[0].value);
         }
-        console.log("Current settings before update:", currentSettings);
 
         if (actionType === "create") {
+            const gallery = await db.gallery.findFirst({ where: { galleyName: gallary } });
+            const source = await db.source.findFirst({ where: { id: gallery.sourceId } });
+            const account = await db.account.findFirst({ where: { id: source.accountId } });
 
-            //Tìm gallery ứng với widget cần lưu
-            const gallery = await db.gallery.findFirst({
-                where: {
-                    galleyName: gallary
+            const createdWidget = await db.widgetSetting.create({
+                data: {
+                    widgetName: widgetName,
+                    gallary: gallary,
+                    widgetTemplate: widgetTemplate,
+                    numberOfColumns: numberOfColumns,
+                    numberOfRows: numberOfRows,
+                    paddingImg: paddingImg,
+                    borderImg: borderImg,
+                    widgetLayout: widgetLayout,
+                    galleryId: gallery.id,
                 }
-            })
-            //tìm xem có bản ghi nào trước đó trong database chưa
-            const existingSetting = await db.widgetSetting.findFirst({
-                where: { id: widgetId },
             });
-            console.log('existingSetting: ', existingSetting);
 
-            // Sử dụng upsert để tạo mới hoặc cập nhật dựa trên sessionId
-            if (existingSetting) {
-                // Kiểm tra nếu widgetName thay đổi
-                if (existingSetting.widgetName !== widgetName) {
-                    // Kiểm tra xem tên mới có trùng lặp trong database hay không (trừ bản ghi hiện tại)
-                    const existsInDatabase = await db.widgetSetting.findFirst({
-                        where: {
-                            widgetName: widgetName,
-                            NOT: { id: existingSetting.id }, // Loại trừ bản ghi hiện tại
-                        },
-                    });
+            const newSetting = {
+                id: createdWidget.id,
+                widgetName: widgetName,
+                gallery: gallary,
+                widgetTemplate: widgetTemplate,
+                numberOfColumns: numberOfColumns,
+                numberOfRows: numberOfRows,
+                paddingImg: paddingImg,
+                borderImg: borderImg,
+                widgetLayout: widgetLayout,
+                galleryId: gallery.id,
+            };
 
-                    if (existsInDatabase) {
-                        // Nếu trùng, trả về lỗi
-                        console.log("Setting with this widgetName already exists in database, skipping:", widgetName);
-                        return json({
-                            success: false,
-                            message: `Setting with widgetName "${widgetName}" already exists in database.`,
-                        }, { status: 409 }); // Conflict status
-                    }
-                }
-
-                // Tiêu chí tìm setting cần cập nhật
-                const targetWidgetName = await db.widgetSetting.findUnique({
-                    where: {
-                        id: existingSetting.id,
-                    },
+            // Tìm account trong currentSettings
+            let accountIndex = currentSettings.accounts?.findIndex(acc => acc.id === account.id);
+            if (accountIndex === -1) {
+                // Nếu account chưa tồn tại, thêm mới
+                currentSettings.accounts.push({
+                    id: account.id,
+                    accessToken: account.accessToken,
+                    accountName: account.accountName,
+                    sources: []
                 });
+                accountIndex = currentSettings.accounts.length - 1;
+            }
 
-                // Dữ liệu mới để cập nhật
-                const updatedSettingMetafield = {
+            // Tìm source trong account
+            let sourceIndex = currentSettings.accounts[accountIndex].sources?.findIndex(src => src.id === source.id);
+            if (sourceIndex === -1) {
+                // Nếu source chưa tồn tại, thêm mới
+                currentSettings.accounts[accountIndex].sources.push({
+                    id: source.id,
+                    sourceName: source.sourceName,
+                    items: source.items,
+                    accountId: source.accountId,
+                    galleries: []
+                });
+                sourceIndex = currentSettings.accounts[accountIndex].sources.length - 1;
+            }
+
+            // Tìm gallery trong source
+            let galleryIndex = currentSettings.accounts[accountIndex].sources[sourceIndex].galleries?.findIndex(gal => gal.id === gallery.id);
+            if (galleryIndex === -1) {
+                // Nếu gallery chưa tồn tại, thêm mới
+                currentSettings.accounts[accountIndex].sources[sourceIndex].galleries.push({
+                    id: gallery.id,
+                    galleryName: gallery.galleyName,
+                    taggerProducts: gallery.taggerProducts,
+                    sourceId: gallery.sourceId,
+                    widgetSettings: []
+                });
+                galleryIndex = currentSettings.accounts[accountIndex].sources[sourceIndex].galleries.length - 1;
+            }
+
+            currentSettings.accounts[accountIndex].sources[sourceIndex].galleries[galleryIndex].widgetSettings.push(newSetting);
+
+            const newMetafield = new admin.rest.resources.Metafield({ session });
+            newMetafield.namespace = "custom";
+            newMetafield.key = "account_data";
+            newMetafield.value = JSON.stringify(currentSettings);
+            newMetafield.type = "json";
+
+            await newMetafield.save({ update: metafields.length > 0 });
+
+            return json({
+                success: true,
+                message: "Widget created successfully."
+            }, { status: 201 });
+
+        } else if (actionType === "update") {
+            const existingSetting = await db.widgetSetting.findFirst({ where: { id: widgetId } });
+
+            if (existingSetting) {
+                const updatedSetting = {
                     widgetName: widgetName,
                     gallary: gallary,
                     widgetTemplate: widgetTemplate,
@@ -233,166 +214,70 @@ export const action = async ({ request, params }) => {
                     widgetLayout: widgetLayout
                 };
 
-                // Tìm và cập nhật setting trong mảng
-                const indexToUpdate = currentSettings.findIndex(
-                    (setting) => setting.widgetName === targetWidgetName.widgetName
-                );
-
-                if (indexToUpdate !== -1) {
-                    // Cập nhật setting
-                    currentSettings[indexToUpdate] = { ...currentSettings[indexToUpdate], ...updatedSettingMetafield };
-                    console.log("Setting updated successfully:", currentSettings[indexToUpdate]);
-                } else {
-                    console.warn("Setting not found, no update performed.");
-                }
-
-                // Lưu lại Metafield
-                const newMetafield = new admin.rest.resources.Metafield({ session });
-                newMetafield.namespace = "instagram";
-                newMetafield.key = "setting";
-                newMetafield.value = JSON.stringify(currentSettings);
-                newMetafield.type = "json";
-
-                try {
-                    await newMetafield.save({ update: true });
-                    console.log("Metafield saved successfully with updated settings:", newMetafield);
-                } catch (error) {
-                    console.error("Error saving updated Metafield:", error);
-                }
-
-                //Bổ sung galleryid
-                const addGalleryIdToSettingData = {
-                    ...updatedSettingMetafield,
-                    galleryId: gallery.id
-                }
-
-                // Nếu đã tồn tại, cập nhật bản ghi hiện tại
-                const updatedSetting = await db.widgetSetting.update({
-                    where: { id: existingSetting.id }, // Cập nhật bằng id (unique)
-                    data: addGalleryIdToSettingData,
-                });
-
-                console.log("Update successfull!", updatedSetting);
-                return json({
-                    success: true,
-                    message: "Widget updated successfully.",
-                }, { status: 200 });
-            } else {
-                // Tạo setting mới
-                const newSettingMetafield = {
-                    widgetName,
-                    gallary,
-                    widgetTemplate,
-                    numberOfColumns,
-                    numberOfRows,
-                    borderImg,
-                    paddingImg,
-                    widgetLayout
-                };
-
-                // Kiểm tra và thêm setting mới nếu chưa tồn tại
-                const exists = currentSettings.some(
-                    (setting) => setting.widgetName === newSettingMetafield.widgetName
-                );
-
-                if (!exists) {
-                    currentSettings.push(newSettingMetafield);
-                    console.log("New setting added:", newSettingMetafield);
-                } else {
-                    console.log("Setting already exists, skipping:", newSettingMetafield);
-                }
-
-                // Lưu lại Metafield
-                const newMetafield = new admin.rest.resources.Metafield({ session });
-                newMetafield.namespace = "instagram";
-                newMetafield.key = "setting";
-                newMetafield.value = JSON.stringify(currentSettings);
-                newMetafield.type = "json";
-
-                try {
-                    await newMetafield.save({ update: true });
-                    console.log("Metafield saved successfully:", newMetafield);
-                } catch (error) {
-                    console.error("Error saving Metafield:", error);
-                }
-
-                // Kiểm tra trùng lặp trong database
-                const existsInDatabase = await db.widgetSetting.findFirst({
-                    where: { widgetName: widgetName },
-                });
-
-                if (existsInDatabase) {
-                    console.log("Setting with this widgetName already exists in database, skipping:", widgetName);
-                    return json({
-                        success: false,
-                        message: `Setting with widgetName "${widgetName}" already exists in database.`,
-                    }, { status: 409 }); // Conflict status
-                }
-
-                // Nếu không tồn tại, tạo mới
-                const newSetting = await db.widgetSetting.create({
-                    data: {
-                        widgetName: widgetName,
-                        gallary: gallary,
-                        widgetTemplate: widgetTemplate,
-                        numberOfColumns: numberOfColumns,
-                        numberOfRows: numberOfRows,
-                        paddingImg: paddingImg,
-                        borderImg: borderImg,
-                        galleryId: gallery.id,
-                        widgetLayout: widgetLayout
-                    },
-                });
-                //update 
-                console.log("Create successfull!", newSetting);
-            }
-            // Trả về kết quả thành công
-            return json({
-                success: true,
-                message: "Widget created successfully."
-            }, { status: 201 });
-        } else if (actionType === 'delete') {
-            // Lấy danh sách tên của các widget từ database theo widgetIds
-            const widgetsToDelete = await db.widgetSetting.findMany({
-                where: {
-                    id: { in: widgetIds }
-                },
-                select: { widgetName: true } // Chỉ lấy tên của các widget
-            });
-
-            // Lấy danh sách tên widget cần xóa
-            const namesToDelete = widgetsToDelete.map(widget => widget.widgetName);
-            console.log('Tên các widget cần xóa:', namesToDelete);
-
-            // Lọc currentSettings để loại bỏ các đối tượng có tên trong danh sách tên cần xóa
-            currentSettings = currentSettings.filter(
-                setting => !namesToDelete.includes(setting.widgetName)
-            );
-            console.log('currentSettings sau khi xóa:', currentSettings);
-
-            // Lưu lại Metafield
-            const deleteMetafield = new admin.rest.resources.Metafield({ session });
-            deleteMetafield.namespace = "instagram";
-            deleteMetafield.key = "setting";
-            deleteMetafield.value = JSON.stringify(currentSettings)
-            deleteMetafield.type = "json";
-            // Lưu Metafield mới
-            await deleteMetafield.save({ update: true });
-            console.log("Xóa Metafield thành công.", deleteMetafield);
-
-            // Xóa bản ghi khỏi database
-            const deletedRecord = await db.widgetSetting.deleteMany({
-                where: {
-                    id: {
-                        in: widgetIds
+                // Tìm và cập nhật setting trong currentSettings
+                for (let acc of currentSettings.accounts) {
+                    for (let src of acc.sources) {
+                        for (let gal of src.galleries) {
+                            const indexToUpdate = gal.widgetSettings.findIndex(setting => setting.id === widgetId);
+                            if (indexToUpdate !== -1) {
+                                gal.widgetSettings[indexToUpdate] = { ...gal.widgetSettings[indexToUpdate], ...updatedSetting };
+                                break;
+                            }
+                        }
                     }
                 }
+
+                const newMetafield = new admin.rest.resources.Metafield({ session });
+                newMetafield.namespace = "custom";
+                newMetafield.key = "account_data";
+                newMetafield.value = JSON.stringify(currentSettings);
+                newMetafield.type = "json";
+
+                await newMetafield.save({ update: true });
+
+                await db.widgetSetting.update({
+                    where: { id: widgetId },
+                    data: updatedSetting
+                });
+
+                return json({
+                    success: true,
+                    message: "Widget updated successfully."
+                }, { status: 200 });
+            }
+
+        } else if (actionType === "delete") {
+            const widgetsToDelete = await db.widgetSetting.findMany({
+                where: { id: { in: widgetIds } },
+                select: { id: true }
             });
-            console.log('Bản ghi đã bị xóa:', deletedRecord);
-            // Trả về kết quả thành công
+
+            const idsToDelete = widgetsToDelete.map(widget => widget.id);
+
+            // Xóa widgetSetting khỏi currentSettings
+            for (let acc of currentSettings.accounts) {
+                for (let src of acc.sources) {
+                    for (let gal of src.galleries) {
+                        gal.widgetSettings = gal.widgetSettings.filter(setting => !idsToDelete.includes(setting.id));
+                    }
+                }
+            }
+
+            const newMetafield = new admin.rest.resources.Metafield({ session });
+            newMetafield.namespace = "custom";
+            newMetafield.key = "account_data";
+            newMetafield.value = JSON.stringify(currentSettings);
+            newMetafield.type = "json";
+
+            await newMetafield.save({ update: true });
+
+            await db.widgetSetting.deleteMany({
+                where: { id: { in: widgetIds } }
+            });
+
             return json({
                 success: true,
-                message: `${deletedRecord.count} widgets deleted successfully.`
+                message: `${widgetsToDelete.length} widgets deleted successfully.`
             }, { status: 200 });
         } else {
             return json({ error: "Unknown action type." }, { status: 400 });
@@ -401,7 +286,7 @@ export const action = async ({ request, params }) => {
         console.error("Cannot load database!", error);
         return json({ error: "Internal server error." }, { status: 500 });
     }
-}
+};
 
 export default function TabsWithTablesExample() {
     //Load data từ loader

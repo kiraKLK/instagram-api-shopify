@@ -124,6 +124,7 @@ export const action = async ({ request, params }) => {
         // metafield.type = "json";
         // // Lưu Metafield mới
         // await metafield.save({ update: true })
+        
         switch (actionType) {
             case "update": {
                 const galleryId = params.gallaryId; // Lấy giá trị từ params
@@ -302,9 +303,6 @@ export default function Source() {
     const [unSave, setUnSave] = useState()
     useEffect(() => {
         if (hasChanges) {
-            console.log("🚀 ~ hasChanges ~ galleryName:", galleryName)
-            console.log("🚀 ~ hasChanges ~ gallery?.galleyName:", gallery?.galleyName)
-            console.log("🚀 ~ Source ~ gallery:", gallery)
             setUnSave(true)
             shopify.saveBar.show('my-save-bar');
         } else {

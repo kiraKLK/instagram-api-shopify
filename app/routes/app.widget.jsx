@@ -795,6 +795,7 @@ export default function TabsWithTablesExample() {
     //Xử lý khi có thay đổi setting
     const isFormChanged = (id) => {
         const formValues = defaultForm(id); // Gọi hàm và lưu kết quả vào biến
+        console.log("🚀 ~ isFormChanged ~ formValues:", formValues)
 
         return (
             textFieldValue !== formValues.widgetName ||

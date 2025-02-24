@@ -4,12 +4,24 @@
 {% assign gallery = shop.metafields.instagram.gallery.value %}
 {% assign is_design_mode = request.design_mode %}
 {% assign meta_setting_data = shop.metafields.custom.account_data.value %}
+{% assign basic_or_account_meta = current_setting.basic_or_account %}
+{% assign basic_title_meta = current_setting.basic_title %}
+{% assign basic_desc_meta = current_setting.basic_desc %}
 
 <script>
     const meta_data = {{ meta_setting_data | json }}
     let widgetSettings_0 = [];
     let accessToken_0 = '';
     let taggerProducts_0 = '';
+    let taggerProductsData = {{ current_setting.taggerProductsData | json}}
+    let accessToken = '{{ current_setting.accessToken_0 }}';
+    let colorDot = '{{current_setting.colorDot}}'
+    let colorPopup = '{{current_setting.colorPopup}}'
+    let basic_title = '{{current_setting.basic_title}}'
+    let basic_desc = '{{current_setting.basic_desc}}'
+    let basic_or_account = '{{current_setting.basic_or_account}}'
+    let object_heading = ''
+   
 
   let widgetSettings = [];
   try {
@@ -32,9 +44,9 @@
       console.error("Error parsing meta_data:", error);
   }
   setTimeout(() => {
-    console.log("🚀 ~ widgetSettings:", widgetSettings);
+
     const select = document.getElementById('widget-selector');
-    console.log("🚀 ~ select:", select);
+
     widgetSettings.forEach((widget, index) => {
       const option = document.createElement('option');
       option.value = index;
@@ -174,8 +186,14 @@
     }
     //Lấy phần tử html
     const selector = document.getElementById("widget-selector");
-    console.log("🚀 ~ selector:", selector)
     const gallery = document.getElementById("instagram-gallery");
+    const previewFeedAccountAvatar = document.querySelector(".preview-feed-account-avatar");
+    const previewFeedAccountDetail = document.querySelector(".preview-feed-account-detail");
+    const previewFeedTitle = document.querySelector(".preview-feed-title");
+    const previewFeedDesc = document.querySelector(".preview-feed-desc");
+    updateDOM(basic_or_account, basic_title, basic_desc);
+
+
     if (!gallery) {
       console.error("Required DOM elements are missing.");
       return;
@@ -184,15 +202,14 @@
     // Lấy giá trị đã lưu từ localStorage
     setTimeout(() => {
         const savedSelection = localStorage.getItem("selected_widget");
-        console.log("🚀 ~ savedSelection:", savedSelection);
         if (savedSelection !== null && !isNaN(parseInt(savedSelection, 10))) {
             const selectedIndex = parseInt(savedSelection, 10);
-            console.log("🚀 ~ selectedIndex:", selectedIndex);
+     
     
             if (widgetSettings[selectedIndex]) {
-                console.log("🚀 ~ widgetSettings[selectedIndex]:", widgetSettings[selectedIndex]);
+                
                 selectedSetting = widgetSettings[selectedIndex];
-                console.log("🚀 ~ selectedSetting:", selectedSetting)
+               
                 meta_data.accounts.forEach(account => {
                   account.sources.forEach(source => {
                     source.galleries.forEach(gallery => {
@@ -204,9 +221,16 @@
                     })
                   })
                 })
-    
+                taggerProductsData = JSON.parse(taggerProducts_0);
+                colorDot = selectedSetting.hotSpotColor
+                object_heading = selectedSetting.heading ? JSON.parse(selectedSetting.heading) : {}
+                basic_title = object_heading.switchChoiceHeadingTitle
+                basic_desc = object_heading.switchChoiceHeadingDesc
+                basic_or_account = object_heading.selectedHeadingSetting        
+                colorPopup = selectedSetting.hotSpotHoverColor
                 selector.value = savedSelection;
                 applySetting(widgetSettings[selectedIndex]);
+                updateDOM(basic_or_account, basic_title, basic_desc);
             } else {
                 console.warn("Saved selection is out of range.");
             }
@@ -214,10 +238,11 @@
     }, 2000); // Delay for 2 seconds
     // Gắn bộ lắng nghe vào thẻ select kích hoạt khi select thay đổi
     selector.addEventListener("change", function () {
-      const selectedIndex = parseInt(this.value, 10);
+     
+      const selectedIndex = parseInt(this.value, 10); 
       //Lấy ra setting được chọn
        selectedSetting = widgetSettings[selectedIndex];
-      console.log("🚀 ~ selectedSetting:", selectedSetting)
+     
       meta_data.accounts.forEach(account => {
         account.sources.forEach(source => {
           source.galleries.forEach(gallery => {
@@ -229,20 +254,47 @@
           })
         })
       })
-
-      console.log("🚀 ~ accessToken:", accessToken_0);
-    console.log("🚀 ~ taggerProducts:", JSON.parse(taggerProducts_0));
-
+      taggerProductsData = JSON.parse(taggerProducts_0);
+      colorDot = selectedSetting.hotSpotColor
+      colorPopup = selectedSetting.hotSpotHoverColor
+      object_heading = selectedSetting.heading ? JSON.parse(selectedSetting.heading) : {}
+      basic_title = object_heading.switchChoiceHeadingTitle
+      basic_desc = object_heading.switchChoiceHeadingDesc
+      basic_or_account = object_heading.selectedHeadingSetting      
       if (selectedSetting) {
         // Lưu giá trị vào localStorage
         localStorage.setItem("selected_widget", selectedIndex);
 
         // Áp dụng cài đặt
         applySetting(selectedSetting);
+        updateDOM(basic_or_account, basic_title, basic_desc);
       } else {
         console.error("Selected index is invalid or not found in settings.");
       }
     });
+
+    function updateDOM(basic_or_account, basic_title, basic_desc) {
+      switch (basic_or_account) {
+        case 'account':
+          previewFeedAccountDetail.style.display = 'block';
+          previewFeedAccountAvatar.style.display = 'block';
+          previewFeedTitle.style.display = 'none';
+          previewFeedDesc.style.display = 'none';
+          break;
+        case 'basic':
+          previewFeedAccountDetail.style.display = 'none';
+          previewFeedAccountAvatar.style.display = 'none';
+          previewFeedTitle.style.display = basic_title ? 'block' : 'none';
+          previewFeedDesc.style.display = basic_desc ? 'block' : 'none';
+          break;
+        default:
+          previewFeedAccountDetail.style.display = 'none';
+          previewFeedAccountAvatar.style.display = 'none';
+          previewFeedTitle.style.display =  'none';
+          previewFeedDesc.style.display =  'none';
+          break;
+      }
+    }
 
     function applySetting(setting) {
       const instagramGallery = document.getElementById("instagram-images");
@@ -280,7 +332,7 @@
 
            // Áp dụng CSS cho từng hình ảnh
            const images = document.querySelectorAll(".instagram-image img");
-           console.log('images: ', images);
+          
            images.forEach((img, index) => {
              img.style.width = "100%";
              img.style.height = "100%";
@@ -357,7 +409,14 @@
             setting.numberOfRows,
             `${setting.paddingImg}px`,
             `${setting.borderImg}px`,
-            setting.widgetLayout
+            setting.widgetLayout,
+            taggerProductsData,
+            accessToken_0,
+            colorDot,
+            colorPopup,
+            basic_title,
+            basic_desc,
+            basic_or_account
           );
           break;
         }
@@ -379,7 +438,7 @@
           
             // Áp dụng CSS cho từng hình ảnh
             const images = document.querySelectorAll(".instagram-image img");
-            console.log('images: ', images);
+           
             images.forEach((img, index) => {
               img.style.width = "100%";
               img.style.height = "100%";
@@ -402,7 +461,14 @@
             setting.numberOfRows,
             `${setting.paddingImg}px`,
             `${setting.borderImg}px`,
-            setting.widgetLayout
+            setting.widgetLayout,
+            taggerProductsData,
+            accessToken_0,
+            colorDot,
+            colorPopup,
+            basic_title,
+            basic_desc,
+            basic_or_account
           );
           break;
         }
@@ -427,7 +493,14 @@
             setting.numberOfRows,
             `${setting.paddingImg}px`,
             `${setting.borderImg}px`,
-            setting.widgetLayout
+            setting.widgetLayout,
+            taggerProductsData,
+            accessToken_0,
+            colorDot,
+            colorPopup,
+            basic_title,
+            basic_desc,
+            basic_or_account
           );
           break;
         }
@@ -449,7 +522,7 @@
           
             // Áp dụng CSS cho từng hình ảnh
             const images = document.querySelectorAll(".instagram-image img");
-            console.log('images: ', images);
+          
             images.forEach((img, index) => {
               img.style.width = "100%";
               img.style.height = "100%";
@@ -476,7 +549,14 @@
             setting.numberOfRows,
             `${setting.paddingImg}px`,
             `${setting.borderImg}px`,
-            setting.widgetLayout
+            setting.widgetLayout,
+            taggerProductsData,
+            accessToken_0,
+            colorDot,
+            colorPopup,
+            basic_title,
+            basic_desc,
+            basic_or_account
           );
           break;
         }
@@ -497,7 +577,7 @@
       
             // Áp dụng CSS cho từng hình ảnh
             const images = document.querySelectorAll(".instagram-image img");
-            console.log('images: ', images);
+          
             images.forEach((img, index) => {
               img.style.width = "100%";
               img.style.height = "100%";
@@ -518,7 +598,14 @@
             setting.numberOfRows,
             `${setting.paddingImg}px`,
             `${setting.borderImg}px`,
-            setting.widgetLayout
+            setting.widgetLayout,
+            taggerProductsData,
+            accessToken_0,
+            colorDot,
+            colorPopup,
+            basic_title,
+            basic_desc,
+            basic_or_account
           );
           break;
         }
@@ -532,7 +619,9 @@
       gallery.style.display = "block";
     }
 
-    function sendCurrentSetting(columns, rows, padding, border,widgetLayout) {
+    function sendCurrentSetting(columns, rows, padding, border,widgetLayout,taggerProductsData,accessToken_0,colorDot,colorPopup,basic_title,
+      basic_desc,
+      basic_or_account) {
       const domain = window.location.hostname; // Lấy domain shop
       const payload = {
         domain,
@@ -540,10 +629,17 @@
         rows,
         padding,
         border,
-        widgetLayout
+        widgetLayout,
+        taggerProductsData,
+        accessToken_0,
+        colorDot,
+        colorPopup,
+        basic_title,
+            basic_desc,
+            basic_or_account  
       };
 
-      fetch("https://move-whom-closes-laden.trycloudflare.com/api/setting", {
+      fetch("https://preference-auto-adventures-dist.trycloudflare.com/api/setting", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -570,7 +666,131 @@
   });
 </script>
 
+<style>
+  .preview-feed-title {
+    font-size: 18px;
+    text-align: center;
+    margin-bottom: 12px;
+  }
+
+  .preview-feed-desc {
+    font-size: 14px;
+    text-align: center;
+    margin-bottom: 12px;
+  }
+
+  .preview-feed-account {
+    display: flex;
+    justify-content: center;
+    width: 60%;
+    margin: auto auto 12px;
+  }
+
+  .preview-feed-account-avatar {
+    width: 86px;
+    height: 86px;
+    min-width: 86px;
+    min-height: 86px;
+    margin-right: 16px;
+    position: relative;
+  }
+
+  .preview-feed-account-avatar-main {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 50%;
+    overflow: hidden;
+  }
+
+  .preview-feed-account-avatar-instagram-logo {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 50%;
+    overflow: hidden;
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    max-width: 14px;
+    max-height: 14px;
+  }
+
+  .preview-feed-account-detail {
+  }
+
+  .preview-feed-account-detail-header {
+    display: flex;
+    margin-bottom: 16px;
+    align-items: center;
+  }
+
+  .preview-feed-account-detail-header-name {
+    margin-right: 27px;
+  }
+
+  .preview-feed-account-detail-header-button-follow {
+    background: #101010;
+    border-radius: 3px;
+    min-height: 32px;
+    padding: 0 16px;
+    border: none;
+    display: inline-flex;
+    align-items: center;
+  }
+
+  .preview-feed-account-detail-number {
+    display: flex;
+    font-size: 14px;
+    margin-bottom: 8px;
+    gap: 8px;
+  }
+
+  .preview-feed-account-detail-number-post {
+  }
+
+  .preview-feed-account-detail-number-follower {
+  }
+
+  .preview-feed-account-detail-number-following {
+  }
+
+  .preview-feed-account-detail-account-name {
+    display: flex;
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 1px;
+  }
+</style>
+
 <section id="instagram-gallery" style="display: block;">
+  
+    <div class="preview-feed-account">
+      <div class="preview-feed-account-avatar">
+        {% comment %}
+          <img class="preview-feed-account-avatar-main" src="https://widget.onecommerce.io/assets/default-avatar-CdrAMLQT.svg" alt="123" />
+          <img class="preview-feed-account-avatar-instagram-logo" src="https://widget.onecommerce.io/assets/InstagramAvatarIcon-DJZhoqG0.svg" alt="123" />
+        {% endcomment %}
+      </div>
+      <div class="preview-feed-account-detail">
+        <div class="preview-feed-account-detail-header">
+          <div class="preview-feed-account-detail-header-name">Tungvan2024</div>
+          <div class="preview-feed-account-detail-header-button-follow" style="color:#FFFF"><span>Follow</span></div>
+        </div>
+        <div class="preview-feed-account-detail-number">
+          <div class="preview-feed-account-detail-number-post"><b>12</b> Post</div>
+          <div class="preview-feed-account-detail-number-follower"><b>0</b> Follower</div>
+          <div class="preview-feed-account-detail-number-following"><b>0</b> Fllowing</div>
+        </div>
+        <div class="preview-feed-account-detail-account-name">Tungvan2024</div>
+      </div>
+    </div>
+ 
+      <div class="preview-feed-title">Follow Us on Instagram</div>
+  
+      <div class="preview-feed-desc">Follow us so you'll never miss an update</div>
+   
+
   <div id="instagram-images" class="instagram-images">
     <button onclick="plusSlides(-1)" style="display:none" id="prev" class="prev">❮</button>
     <button onclick="plusSlides(1)" style="display:none" id="next" class="next">❯</button>
@@ -928,7 +1148,7 @@
     width: 13px;
     height: 13px;
     border-radius: 999px;
-    background-color: #fff;
+    background-color: {{ current_setting.colorDot }};
     transform: translate(-50%, -50%);
     cursor: pointer;
     z-index: 10;
@@ -1201,7 +1421,7 @@
     display: flex;
     gap: 6px;
     position: absolute;
-    background: black;
+    background: {{current_setting.colorPopup}};
     color: white;
     padding: 10px;
     border-radius: 6px;
@@ -1256,7 +1476,6 @@
 <script>
   let activeDot = null; // Biến lưu trữ dot đang hiển thị popup
   function showPopup(event, dot, dotData) {
-    console.log('dot: ', dot);
     const popup = document.getElementById('popup');
     const arrow = document.getElementById('popup-arrow');
     const productTitle = document.getElementById('product-title');
@@ -1321,7 +1540,8 @@
       arrowTop > 0
         ? `${arrowSize}px ${arrowSize}px 0` // Mũi tên hướng lên trên
         : `0 ${arrowSize}px ${arrowSize}px`; // Mũi tên hướng xuống dưới
-    arrow.style.borderColor = arrowTop > 0 ? 'black transparent transparent' : 'transparent transparent black';
+    arrow.style.borderColor =
+      arrowTop > 0 ? `${colorPopup} transparent transparent` : `transparent transparent ${colorPopup}`;
   }
 
   // Khi chuột ra khỏi dot hoặc popup -> chỉ ẩn popup sau một khoảng thời gian nhỏ
@@ -1353,12 +1573,8 @@
 <script>
   window.onload = async function () {
     
-
-
-    const accessToken = '{{ access_token.longLivedAccessToken }}';
     const galleryJson = {{ gallery | json }}
   
-    console.log("🚀 ~ galleryJson:", galleryJson)
     
     console.log("🚀 ~ meta_data:", meta_data)
     if (!accessToken) {
@@ -1547,17 +1763,15 @@
     
        // Hàm lấy danh sách dots từ gallery dựa vào ID bài post
        const loadDotsForPost = (postId) => {
+        
         const dotsContainer = document.getElementById('dots-container');
         dotsContainer.innerHTML = ''; // Xóa dots cũ
 
         const productContainer = document.getElementById('popup-detail-shoppable-grid-id');
         productContainer.innerHTML = '';
 
-        let test = JSON.parse(taggerProducts_0)
-
        // const postGalleryData = galleryJson.taggedProducts[postId] || []; // Lấy dữ liệu dot theo ID
-        const postGalleryData = test[postId] || []; // Lấy dữ liệu dot theo ID
-        console.log("🚀 ~ loadDotsForPost ~ postGalleryData:", postGalleryData)
+        const postGalleryData = taggerProductsData[postId] || []; // Lấy dữ liệu dot theo ID
 
         postGalleryData.forEach(dot => {
             const dotElement = document.createElement('div');
@@ -1590,6 +1804,14 @@
 
             dotsContainer.appendChild(dotElement);
             productContainer.appendChild(productElement);
+            const dot_color = document.querySelectorAll('.dot');
+            dot_color.forEach(dot => {
+              dot.style.backgroundColor = colorDot;
+            });
+            const popupElements = document.querySelectorAll('.popup');
+            popupElements.forEach(popup => {
+              popup.style.backgroundColor = colorPopup;
+            });
         });
         };
       

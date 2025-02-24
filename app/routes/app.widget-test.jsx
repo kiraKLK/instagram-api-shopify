@@ -91,6 +91,8 @@ export const action = async ({ request, params }) => {
             : 0;
         const widgetName = formData?.widgetName?.toString() ?? "";
         const gallary = formData?.gallary?.toString() ?? "";
+        const hotSpotColor = formData?.hotspotColor?.toString() ?? "";
+        const hotSpotHoverColor = formData?.hotspotHoverColor?.toString() ?? "";
         const widgetTemplate = formData?.widgetTemplate?.toString() ?? "";
         const numberOfColumns = parseInt(formData?.numberOfColumns?.toString() ?? "1", 10);
         const numberOfRows = parseInt(formData?.numberOfRows?.toString() ?? "1", 10);
@@ -98,6 +100,14 @@ export const action = async ({ request, params }) => {
         const paddingImg = parseInt(formData?.paddingImg?.toString() ?? "0", 10);
         const widgetLayout = parseInt(formData?.widgetLayout?.toString() ?? "1", 10);
         const widgetIds = formData?.ids?.split(',').map(Number);
+        const heading = {
+            selectedHeadingSetting: formData?.selectedHeadingSetting?.toString() ?? "",
+            switchChoiceHeadingDesc: formData?.switchChoiceHeadingDesc === "true",
+            switchChoiceHeadingTitle: formData?.switchChoiceHeadingTitle === "true"
+        };
+        console.log("🚀 ~ action ~ heading:", heading)
+
+
 
         // Tìm metafield đã tồn tại
         const metafields = await admin.rest.resources.Metafield.all({
@@ -112,96 +122,8 @@ export const action = async ({ request, params }) => {
         }
 
         if (actionType === "create") {
-            const gallery = await db.gallery.findFirst({ where: { galleyName: gallary } });
-            const source = await db.source.findFirst({ where: { id: gallery.sourceId } });
-            const account = await db.account.findFirst({ where: { id: source.accountId } });
-
-            const createdWidget = await db.widgetSetting.create({
-                data: {
-                    widgetName: widgetName,
-                    gallary: gallary,
-                    widgetTemplate: widgetTemplate,
-                    numberOfColumns: numberOfColumns,
-                    numberOfRows: numberOfRows,
-                    paddingImg: paddingImg,
-                    borderImg: borderImg,
-                    widgetLayout: widgetLayout,
-                    galleryId: gallery.id,
-                }
-            });
-
-            const newSetting = {
-                id: createdWidget.id,
-                widgetName: widgetName,
-                gallery: gallary,
-                widgetTemplate: widgetTemplate,
-                numberOfColumns: numberOfColumns,
-                numberOfRows: numberOfRows,
-                paddingImg: paddingImg,
-                borderImg: borderImg,
-                widgetLayout: widgetLayout,
-                galleryId: gallery.id,
-            };
-
-            // Tìm account trong currentSettings
-            let accountIndex = currentSettings.accounts?.findIndex(acc => acc.id === account.id);
-            if (accountIndex === -1) {
-                // Nếu account chưa tồn tại, thêm mới
-                currentSettings.accounts.push({
-                    id: account.id,
-                    accessToken: account.accessToken,
-                    accountName: account.accountName,
-                    sources: []
-                });
-                accountIndex = currentSettings.accounts.length - 1;
-            }
-
-            // Tìm source trong account
-            let sourceIndex = currentSettings.accounts[accountIndex].sources?.findIndex(src => src.id === source.id);
-            if (sourceIndex === -1) {
-                // Nếu source chưa tồn tại, thêm mới
-                currentSettings.accounts[accountIndex].sources.push({
-                    id: source.id,
-                    sourceName: source.sourceName,
-                    items: source.items,
-                    accountId: source.accountId,
-                    galleries: []
-                });
-                sourceIndex = currentSettings.accounts[accountIndex].sources.length - 1;
-            }
-
-            // Tìm gallery trong source
-            let galleryIndex = currentSettings.accounts[accountIndex].sources[sourceIndex].galleries?.findIndex(gal => gal.id === gallery.id);
-            if (galleryIndex === -1) {
-                // Nếu gallery chưa tồn tại, thêm mới
-                currentSettings.accounts[accountIndex].sources[sourceIndex].galleries.push({
-                    id: gallery.id,
-                    galleryName: gallery.galleyName,
-                    taggerProducts: gallery.taggerProducts,
-                    sourceId: gallery.sourceId,
-                    widgetSettings: []
-                });
-                galleryIndex = currentSettings.accounts[accountIndex].sources[sourceIndex].galleries.length - 1;
-            }
-
-            currentSettings.accounts[accountIndex].sources[sourceIndex].galleries[galleryIndex].widgetSettings.push(newSetting);
-
-            const newMetafield = new admin.rest.resources.Metafield({ session });
-            newMetafield.namespace = "custom";
-            newMetafield.key = "account_data";
-            newMetafield.value = JSON.stringify(currentSettings);
-            newMetafield.type = "json";
-
-            await newMetafield.save({ update: metafields.length > 0 });
-
-            return json({
-                success: true,
-                message: "Widget created successfully."
-            }, { status: 201 });
-
-        } else if (actionType === "update") {
+            //Kiểm tra nếu tồn tại Id thì update nếu không thì tạo mới
             const existingSetting = await db.widgetSetting.findFirst({ where: { id: widgetId } });
-
             if (existingSetting) {
                 const updatedSetting = {
                     widgetName: widgetName,
@@ -211,7 +133,10 @@ export const action = async ({ request, params }) => {
                     numberOfRows: numberOfRows,
                     paddingImg: paddingImg,
                     borderImg: borderImg,
-                    widgetLayout: widgetLayout
+                    widgetLayout: widgetLayout,
+                    hotSpotHoverColor: hotSpotHoverColor,
+                    hotSpotColor: hotSpotColor,
+                    heading: JSON.stringify(heading),
                 };
 
                 // Tìm và cập nhật setting trong currentSettings
@@ -244,8 +169,100 @@ export const action = async ({ request, params }) => {
                     success: true,
                     message: "Widget updated successfully."
                 }, { status: 200 });
-            }
+            } else {
+                const gallery = await db.gallery.findFirst({ where: { galleyName: gallary } });
+                const source = await db.source.findFirst({ where: { id: gallery.sourceId } });
+                const account = await db.account.findFirst({ where: { id: source.accountId } });
 
+                const createdWidget = await db.widgetSetting.create({
+                    data: {
+                        widgetName: widgetName,
+                        gallary: gallary,
+                        widgetTemplate: widgetTemplate,
+                        numberOfColumns: numberOfColumns,
+                        numberOfRows: numberOfRows,
+                        paddingImg: paddingImg,
+                        borderImg: borderImg,
+                        widgetLayout: widgetLayout,
+                        galleryId: gallery.id,
+                        hotSpotHoverColor: hotSpotHoverColor,
+                        hotSpotColor: hotSpotColor,
+                        heading: JSON.stringify(heading),
+                    }
+                });
+
+                const newSetting = {
+                    id: createdWidget.id,
+                    widgetName: widgetName,
+                    gallery: gallary,
+                    widgetTemplate: widgetTemplate,
+                    numberOfColumns: numberOfColumns,
+                    numberOfRows: numberOfRows,
+                    paddingImg: paddingImg,
+                    borderImg: borderImg,
+                    widgetLayout: widgetLayout,
+                    galleryId: gallery.id,
+                    hotSpotHoverColor: hotSpotHoverColor,
+                    hotSpotColor: hotSpotColor,
+                    heading: JSON.stringify(heading),
+                };
+
+                // Tìm account trong currentSettings
+                let accountIndex = currentSettings.accounts?.findIndex(acc => acc.id === account.id);
+                if (accountIndex === -1) {
+                    // Nếu account chưa tồn tại, thêm mới
+                    currentSettings.accounts.push({
+                        id: account?.id,
+                        accessToken: account?.accessToken,
+                        accountName: account?.accountName,
+                        sources: []
+                    });
+                    accountIndex = currentSettings.accounts.length - 1;
+                }
+
+                // Tìm source trong account
+                let sourceIndex = currentSettings.accounts[accountIndex].sources?.findIndex(src => src.id === source.id);
+                if (sourceIndex === -1) {
+                    // Nếu source chưa tồn tại, thêm mới
+                    currentSettings.accounts[accountIndex].sources.push({
+                        id: source?.id,
+                        sourceName: source?.sourceName,
+                        items: source?.items,
+                        accountId: source?.accountId,
+                        galleries: []
+                    });
+                    sourceIndex = currentSettings.accounts[accountIndex].sources.length - 1;
+                }
+
+                // Tìm gallery trong source
+                let galleryIndex = currentSettings.accounts[accountIndex].sources[sourceIndex].galleries?.findIndex(gal => gal.id === gallery.id);
+                if (galleryIndex === -1) {
+                    // Nếu gallery chưa tồn tại, thêm mới
+                    currentSettings.accounts[accountIndex].sources[sourceIndex].galleries.push({
+                        id: gallery?.id,
+                        galleryName: gallery?.galleyName,
+                        taggerProducts: gallery?.taggerProducts,
+                        sourceId: gallery?.sourceId,
+                        widgetSettings: []
+                    });
+                    galleryIndex = currentSettings.accounts[accountIndex].sources[sourceIndex].galleries.length - 1;
+                }
+
+                currentSettings.accounts[accountIndex].sources[sourceIndex].galleries[galleryIndex].widgetSettings.push(newSetting);
+
+                const newMetafield = new admin.rest.resources.Metafield({ session });
+                newMetafield.namespace = "custom";
+                newMetafield.key = "account_data";
+                newMetafield.value = JSON.stringify(currentSettings);
+                newMetafield.type = "json";
+
+                await newMetafield.save({ update: metafields.length > 0 });
+
+                return json({
+                    success: true,
+                    message: "Widget created successfully."
+                }, { status: 201 });
+            }
         } else if (actionType === "delete") {
             const widgetsToDelete = await db.widgetSetting.findMany({
                 where: { id: { in: widgetIds } },
@@ -342,6 +359,11 @@ export default function TabsWithTablesExample() {
                 paddingImg: rangeValuePadding,
                 borderImg: rangeValueBorder,
                 widgetLayout: selectedLayout,
+                hotspotColor: valueHotspotColor,
+                hotspotHoverColor: valueHotspotHover,
+                selectedHeadingSetting: selectedHeadingSetting,
+                switchChoiceHeadingDesc: switchChoiceHeadingDesc,
+                switchChoiceHeadingTitle: switchChoiceHeadingTitle,
                 _action: actionType,
             }
             // Gửi dữ liệu tới server
@@ -458,7 +480,7 @@ export default function TabsWithTablesExample() {
         setSwitchChoiceHeadingDesc((prev) => !prev)
     }
     //Xử lý hiển thị header 
-    const [selectedHeadingSetting, setSelectedHeadingSetting] = useState(['none']);
+    const [selectedHeadingSetting, setSelectedHeadingSetting] = useState(['basic']);
     const handleChoiceListChange = useCallback(
         (value) => setSelectedHeadingSetting(value),
         [],
@@ -680,6 +702,7 @@ export default function TabsWithTablesExample() {
     //Xử lý khi có thay đổi setting
     const isFormChanged = (id) => {
         const formValues = defaultForm(id); // Gọi hàm và lưu kết quả vào biến
+        console.log("🚀 ~ isFormChanged ~ formValues:", formValues)
 
         return (
             textFieldValue !== formValues.widgetName ||
@@ -688,21 +711,34 @@ export default function TabsWithTablesExample() {
             rangeValueRow !== formValues.rangeValueRow ||
             rangeValueBorder !== formValues.rangeValueBorder ||
             rangeValuePadding !== formValues.rangeValuePadding ||
-            (selectedLayout !== formValues.widgetLayout && selectedLayout !== 10)
+            (selectedLayout !== formValues.widgetLayout && selectedLayout !== 10) ||
+            switchChoiceHeadingDesc !== formValues.basicDesc ||
+            switchChoiceHeadingTitle !== formValues.basicTitle ||
+            selectedHeadingSetting[0] !== formValues.accountInfor ||
+            valueHotspotColor !== formValues.colorHotspot ||
+            valueHotspotHover !== formValues.colorPopup
         )
+
     }
 
-    const defaultForm = (index) => (
-        {
+    const defaultForm = (index) => {
+        let ojectHeading = widget[index]?.heading ? JSON.parse(widget[index].heading) : {}
+
+        return {
             widgetName: widget[index]?.widgetName || '',
             gallery: widget[index]?.gallary || 'default',
             rangeValueColumn: widget[index]?.numberOfColumns || 4,
             rangeValueRow: widget[index]?.numberOfRows || 2,
             rangeValuePadding: widget[index]?.paddingImg || 0,
             rangeValueBorder: widget[index]?.borderImg || 1,
-            widgetLayout: widget[index]?.widgetLayout || 1
-
-        });
+            widgetLayout: widget[index]?.widgetLayout || 1,
+            basicTitle: ojectHeading.switchChoiceHeadingTitle || false,
+            basicDesc: ojectHeading.switchChoiceHeadingDesc || false,
+            accountInfor: ojectHeading.selectedHeadingSetting || "none",
+            colorHotspot: widget[index]?.hotSpotColor || '',
+            colorPopup: widget[index]?.hotSpotHoverColor || ''
+        };
+    };
     //Kiểm tra thay đổi setting theo từng bản ghi
     useEffect(() => {
         // Chỉ kiểm tra khi dữ liệu đã load xong
@@ -726,7 +762,12 @@ export default function TabsWithTablesExample() {
         rangeValueRow,
         rangeValuePadding,
         rangeValueBorder,
-        selectedLayout
+        selectedLayout,
+        switchChoiceHeadingDesc,
+        switchChoiceHeadingTitle,
+        selectedHeadingSetting,
+        valueHotspotColor,
+        valueHotspotHover
     ]);
     // reset lỗi khi mở modal tạo mới
     useEffect(() => {
@@ -744,7 +785,23 @@ export default function TabsWithTablesExample() {
         setRangeValuePadding(formValues.rangeValuePadding);
         setSelectedLayout(formValues.widgetLayout)
         setCurrentView("default")
+        setSwitchChoiceHeadingDesc(false)
+        setSwitchChoiceHeadingTitle(false)
+        setSelectedHeadingSetting(["basic"])
+        setColorHotspotColor({
+            hue: 120,
+            brightness: 1,
+            saturation: 1,
+            alpha: 0.7,
+        })
+        setColorHotspotHover({
+            hue: 120,
+            brightness: 1,
+            saturation: 1,
+            alpha: 0.7,
+        })
     };
+
 
     //hàm làm trống form khi tạo widget mới
     const emptyForm = () => {
@@ -758,6 +815,21 @@ export default function TabsWithTablesExample() {
         setRangeValuePadding(1)
         setSelectedLayout(1)
         setCurrentView("default")
+        setSwitchChoiceHeadingDesc(false)
+        setSwitchChoiceHeadingTitle(false)
+        setSelectedHeadingSetting(["basic"])
+        setColorHotspotColor({
+            hue: 120,
+            brightness: 1,
+            saturation: 1,
+            alpha: 0.7,
+        })
+        setColorHotspotHover({
+            hue: 120,
+            brightness: 1,
+            saturation: 1,
+            alpha: 0.7,
+        })
     }
     //useEffect để loading xong
     useEffect(() => {
@@ -1738,7 +1810,7 @@ export default function TabsWithTablesExample() {
 
     return (
         <>
-            <Page fullWidth title="All widget" primaryAction={<Button icon={PlusIcon} variant="primary" onClick={() => { setActiveStep1(0); shopify.modal.show('my-modal'); emptyForm(); navigate('?new') }}>Create widget</Button>}>
+            <Page fullWidth title="All widget" primaryAction={<Button icon={PlusIcon} variant="primary" onClick={() => { setActiveStep1(0); shopify.modal.show('my-modal'); emptyForm(); navigate('?new'); setPreviewShoping(true) }}>Create widget</Button>}>
                 <LegacyCard>
                     <Tabs tabs={tabs} selected={selected} onSelect={handleTabChange} >
                         <LegacyCard.Section>

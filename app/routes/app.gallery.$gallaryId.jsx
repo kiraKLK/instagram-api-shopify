@@ -114,17 +114,18 @@ export const action = async ({ request, params }) => {
         console.log("🚀 ~ action ~ galleryName:", galleryName)
         const taggedProducts = formData?.taggedProducts?.toString() ?? "";
 
-        // const metafield = new admin.rest.resources.Metafield({ session });
-        // //Gán namespace, key và value cho Metafield
-        // metafield.namespace = "instagram";
-        // metafield.key = "gallery";
-        // metafield.value = JSON.stringify({
-        //     taggedProducts
-        // });
-        // metafield.type = "json";
-        // // Lưu Metafield mới
-        // await metafield.save({ update: true })
-        
+        // Tìm metafield đã tồn tại
+        const metafields = await admin.rest.resources.Metafield.all({
+            session,
+            namespace: "custom",
+            key: "account_data"
+        });
+
+        let currentSettings = { accounts: [] };
+        if (metafields.data.length > 0) {
+            currentSettings = JSON.parse(metafields.data[0].value);
+        }
+
         switch (actionType) {
             case "update": {
                 const galleryId = params.gallaryId; // Lấy giá trị từ params
@@ -142,6 +143,31 @@ export const action = async ({ request, params }) => {
                         sourceId: gallerys.sourceId,
                     },
                 });
+                //Cập nhật vào metafields
+                // Tìm và cập nhật setting trong currentSettings
+                for (let acc of currentSettings.accounts) {
+                    for (let src of acc.sources) {
+                        if (src.id === gallerys.sourceId) {
+                            for (let gal of src.galleries) {
+                                if (gal.id === gallerys.id) {
+                                    gal.galleryName = galleryName;
+                                    gal.taggerProducts = taggedProducts;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+
+                const newMetafield = new admin.rest.resources.Metafield({ session });
+                newMetafield.namespace = "custom";
+                newMetafield.key = "account_data";
+                newMetafield.value = JSON.stringify(currentSettings);
+                newMetafield.type = "json";
+
+                await newMetafield.save({ update: true });
+
+
                 return json({
                     success: true,
                     message: "Update gallery successfully.",

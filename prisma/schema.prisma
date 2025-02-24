@@ -27,43 +27,45 @@ model Session {
 }
 
 model Account {
-  id            Int             @id @default(autoincrement())
-  accessToken   String
-  accountName   String
-  sessionId     String
-  session       Session         @relation("SessionAccounts", fields: [sessionId], references: [id])
-  Source       Source[]       @relation("Source")
+  id          Int      @id @default(autoincrement())
+  accessToken String
+  accountName String
+  sessionId   String
+  session     Session  @relation("SessionAccounts", fields: [sessionId], references: [id])
+  Source      Source[] @relation("Source")
 }
+
 model Source {
-  id             Int     @id @default(autoincrement())
+  id         Int       @id @default(autoincrement())
   sourceName String
-  items Int
-  accountId      Int
-  account        Account @relation("Source", fields: [accountId], references: [id])
-  gallery       Gallery[]       @relation("Gallery")
+  items      Int
+  accountId  Int
+  account    Account   @relation("Source", fields: [accountId], references: [id])
+  gallery    Gallery[] @relation("Gallery")
 }
 
 model Gallery {
-  id             Int     @id @default(autoincrement())
+  id             Int             @id @default(autoincrement())
   taggerProducts String
   galleyName     String
-  sourceId      Int
-  source        Source @relation("Gallery", fields: [sourceId], references: [id])
-  widgetSetting WidgetSetting[] @relation("Setting")
+  sourceId       Int
+  source         Source          @relation("Gallery", fields: [sourceId], references: [id])
+  widgetSetting  WidgetSetting[] @relation("Setting")
 }
 
 model WidgetSetting {
-  id              Int     @id @default(autoincrement())
-  widgetName      String
-  gallary         String
-  widgetTemplate  String
-  numberOfColumns Int
-  numberOfRows    Int
-  paddingImg      Int
-  borderImg       Int
-  galleryId       Int
-  widgetLayout    Int
-  gallery         Gallery @relation("Setting", fields: [galleryId], references: [id])
+  id                Int     @id @default(autoincrement())
+  widgetName        String
+  gallary           String
+  widgetTemplate    String
+  hotSpotHoverColor String
+  hotSpotColor      String
+  heading           String
+  numberOfColumns   Int
+  numberOfRows      Int
+  paddingImg        Int
+  borderImg         Int
+  galleryId         Int
+  widgetLayout      Int
+  gallery           Gallery @relation("Setting", fields: [galleryId], references: [id])
 }
-
-

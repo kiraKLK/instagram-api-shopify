@@ -1,7 +1,7 @@
 # Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
 
 client_id = "de4349f3cb6d7c794a2536266a976f22"
-application_url = "https://somerset-collection-cgi-shopping.trycloudflare.com"
+application_url = "https://preference-auto-adventures-dist.trycloudflare.com"
 embedded = true
 name = "test-theme"
 handle = "test-theme-28"
@@ -19,9 +19,9 @@ scopes = "write_products"
 
 [auth]
 redirect_urls = [
-  "https://somerset-collection-cgi-shopping.trycloudflare.com/auth/callback",
-  "https://somerset-collection-cgi-shopping.trycloudflare.com/auth/shopify/callback",
-  "https://somerset-collection-cgi-shopping.trycloudflare.com/api/auth/callback"
+  "https://preference-auto-adventures-dist.trycloudflare.com/auth/callback",
+  "https://preference-auto-adventures-dist.trycloudflare.com/auth/shopify/callback",
+  "https://preference-auto-adventures-dist.trycloudflare.com/api/auth/callback"
 ]
 
 [pos]

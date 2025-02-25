@@ -1,7 +1,7 @@
 # Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
 
 client_id = "de4349f3cb6d7c794a2536266a976f22"
-application_url = "https://preference-auto-adventures-dist.trycloudflare.com"
+application_url = "https://honey-exotic-zinc-possibly.trycloudflare.com"
 embedded = true
 name = "test-theme"
 handle = "test-theme-28"
@@ -19,9 +19,9 @@ scopes = "write_products"
 
 [auth]
 redirect_urls = [
-  "https://preference-auto-adventures-dist.trycloudflare.com/auth/callback",
-  "https://preference-auto-adventures-dist.trycloudflare.com/auth/shopify/callback",
-  "https://preference-auto-adventures-dist.trycloudflare.com/api/auth/callback"
+  "https://honey-exotic-zinc-possibly.trycloudflare.com/auth/callback",
+  "https://honey-exotic-zinc-possibly.trycloudflare.com/auth/shopify/callback",
+  "https://honey-exotic-zinc-possibly.trycloudflare.com/api/auth/callback"
 ]
 
 [pos]

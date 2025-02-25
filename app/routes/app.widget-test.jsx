@@ -105,79 +105,93 @@ export const action = async ({ request, params }) => {
             switchChoiceHeadingDesc: formData?.switchChoiceHeadingDesc === "true",
             switchChoiceHeadingTitle: formData?.switchChoiceHeadingTitle === "true"
         };
-        console.log("🚀 ~ action ~ heading:", heading)
-
-
 
         // Tìm metafield đã tồn tại
         const metafields = await admin.rest.resources.Metafield.all({
             session,
             namespace: "custom",
-            key: "account_data"
+            key: "setting_data"
         });
 
         let currentSettings = { accounts: [] };
         if (metafields.data.length > 0) {
             currentSettings = JSON.parse(metafields.data[0].value);
         }
+        switch (actionType) {
+            case "create": {
+                // Kiểm tra nếu tồn tại Id thì update nếu không thì tạo mới
+                const existingSetting = await db.widgetSetting.findFirst({ where: { id: widgetId } });
+                if (existingSetting) {
+                    const updatedSetting = {
+                        widgetName: widgetName,
+                        gallary: gallary,
+                        widgetTemplate: widgetTemplate,
+                        numberOfColumns: numberOfColumns,
+                        numberOfRows: numberOfRows,
+                        paddingImg: paddingImg,
+                        borderImg: borderImg,
+                        widgetLayout: widgetLayout,
+                        hotSpotHoverColor: hotSpotHoverColor,
+                        hotSpotColor: hotSpotColor,
+                        heading: JSON.stringify(heading),
+                    };
 
-        if (actionType === "create") {
-            //Kiểm tra nếu tồn tại Id thì update nếu không thì tạo mới
-            const existingSetting = await db.widgetSetting.findFirst({ where: { id: widgetId } });
-            if (existingSetting) {
-                const updatedSetting = {
-                    widgetName: widgetName,
-                    gallary: gallary,
-                    widgetTemplate: widgetTemplate,
-                    numberOfColumns: numberOfColumns,
-                    numberOfRows: numberOfRows,
-                    paddingImg: paddingImg,
-                    borderImg: borderImg,
-                    widgetLayout: widgetLayout,
-                    hotSpotHoverColor: hotSpotHoverColor,
-                    hotSpotColor: hotSpotColor,
-                    heading: JSON.stringify(heading),
-                };
-
-                // Tìm và cập nhật setting trong currentSettings
-                for (let acc of currentSettings.accounts) {
-                    for (let src of acc.sources) {
-                        for (let gal of src.galleries) {
-                            const indexToUpdate = gal.widgetSettings.findIndex(setting => setting.id === widgetId);
-                            if (indexToUpdate !== -1) {
-                                gal.widgetSettings[indexToUpdate] = { ...gal.widgetSettings[indexToUpdate], ...updatedSetting };
-                                break;
+                    // Tìm và cập nhật setting trong currentSettings
+                    for (let acc of currentSettings.accounts) {
+                        for (let src of acc.sources) {
+                            for (let gal of src.galleries) {
+                                const indexToUpdate = gal.widgetSettings.findIndex(setting => setting.id === widgetId);
+                                if (indexToUpdate !== -1) {
+                                    gal.widgetSettings[indexToUpdate] = { ...gal.widgetSettings[indexToUpdate], ...updatedSetting };
+                                    break;
+                                }
                             }
                         }
                     }
-                }
 
-                const newMetafield = new admin.rest.resources.Metafield({ session });
-                newMetafield.namespace = "custom";
-                newMetafield.key = "account_data";
-                newMetafield.value = JSON.stringify(currentSettings);
-                newMetafield.type = "json";
+                    const newMetafield = new admin.rest.resources.Metafield({ session });
+                    newMetafield.namespace = "custom";
+                    newMetafield.key = "setting_data";
+                    newMetafield.value = JSON.stringify(currentSettings);
+                    newMetafield.type = "json";
 
-                await newMetafield.save({ update: true });
+                    await newMetafield.save({ update: true });
 
-                await db.widgetSetting.update({
-                    where: { id: widgetId },
-                    data: updatedSetting
-                });
+                    await db.widgetSetting.update({
+                        where: { id: widgetId },
+                        data: updatedSetting
+                    });
 
-                return json({
-                    success: true,
-                    message: "Widget updated successfully."
-                }, { status: 200 });
-            } else {
-                const gallery = await db.gallery.findFirst({ where: { galleyName: gallary } });
-                const source = await db.source.findFirst({ where: { id: gallery.sourceId } });
-                const account = await db.account.findFirst({ where: { id: source.accountId } });
+                    return json({
+                        success: true,
+                        message: "Widget updated successfully."
+                    }, { status: 200 });
+                } else {
+                    const gallery = await db.gallery.findFirst({ where: { galleyName: gallary } });
+                    const source = await db.source.findFirst({ where: { id: gallery.sourceId } });
+                    const account = await db.account.findFirst({ where: { id: source.accountId } });
 
-                const createdWidget = await db.widgetSetting.create({
-                    data: {
+                    const createdWidget = await db.widgetSetting.create({
+                        data: {
+                            widgetName: widgetName,
+                            gallary: gallary,
+                            widgetTemplate: widgetTemplate,
+                            numberOfColumns: numberOfColumns,
+                            numberOfRows: numberOfRows,
+                            paddingImg: paddingImg,
+                            borderImg: borderImg,
+                            widgetLayout: widgetLayout,
+                            galleryId: gallery.id,
+                            hotSpotHoverColor: hotSpotHoverColor,
+                            hotSpotColor: hotSpotColor,
+                            heading: JSON.stringify(heading),
+                        }
+                    });
+
+                    const newSetting = {
+                        id: createdWidget.id,
                         widgetName: widgetName,
-                        gallary: gallary,
+                        gallery: gallary,
                         widgetTemplate: widgetTemplate,
                         numberOfColumns: numberOfColumns,
                         numberOfRows: numberOfRows,
@@ -188,117 +202,309 @@ export const action = async ({ request, params }) => {
                         hotSpotHoverColor: hotSpotHoverColor,
                         hotSpotColor: hotSpotColor,
                         heading: JSON.stringify(heading),
+                    };
+
+                    // Tìm account trong currentSettings
+                    let accountIndex = currentSettings.accounts?.findIndex(acc => acc.id === account.id);
+                    if (accountIndex === -1) {
+                        // Nếu account chưa tồn tại, thêm mới
+                        currentSettings.accounts.push({
+                            id: account?.id,
+                            accessToken: account?.accessToken,
+                            accountName: account?.accountName,
+                            sources: []
+                        });
+                        accountIndex = currentSettings.accounts.length - 1;
                     }
+
+                    // Tìm source trong account
+                    let sourceIndex = currentSettings.accounts[accountIndex].sources?.findIndex(src => src.id === source.id);
+                    if (sourceIndex === -1) {
+                        // Nếu source chưa tồn tại, thêm mới
+                        currentSettings.accounts[accountIndex].sources.push({
+                            id: source?.id,
+                            sourceName: source?.sourceName,
+                            items: source?.items,
+                            accountId: source?.accountId,
+                            galleries: []
+                        });
+                        sourceIndex = currentSettings.accounts[accountIndex].sources.length - 1;
+                    }
+
+                    // Tìm gallery trong source
+                    let galleryIndex = currentSettings.accounts[accountIndex].sources[sourceIndex].galleries?.findIndex(gal => gal.id === gallery.id);
+                    if (galleryIndex === -1) {
+                        // Nếu gallery chưa tồn tại, thêm mới
+                        currentSettings.accounts[accountIndex].sources[sourceIndex].galleries.push({
+                            id: gallery?.id,
+                            galleryName: gallery?.galleyName,
+                            taggerProducts: gallery?.taggerProducts,
+                            sourceId: gallery?.sourceId,
+                            widgetSettings: []
+                        });
+                        galleryIndex = currentSettings.accounts[accountIndex].sources[sourceIndex].galleries.length - 1;
+                    }
+
+                    currentSettings.accounts[accountIndex].sources[sourceIndex].galleries[galleryIndex].widgetSettings.push(newSetting);
+
+                    const newMetafield = new admin.rest.resources.Metafield({ session });
+                    newMetafield.namespace = "custom";
+                    newMetafield.key = "setting_data";
+                    newMetafield.value = JSON.stringify(currentSettings);
+                    newMetafield.type = "json";
+
+                    await newMetafield.save({ update: metafields.length > 0 });
+
+                    return json({
+                        success: true,
+                        message: "Widget created successfully."
+                    }, { status: 201 });
+                }
+                break;
+            }
+            case "delete": {
+                const widgetsToDelete = await db.widgetSetting.findMany({
+                    where: { id: { in: widgetIds } },
+                    select: { id: true }
                 });
 
-                const newSetting = {
-                    id: createdWidget.id,
-                    widgetName: widgetName,
-                    gallery: gallary,
-                    widgetTemplate: widgetTemplate,
-                    numberOfColumns: numberOfColumns,
-                    numberOfRows: numberOfRows,
-                    paddingImg: paddingImg,
-                    borderImg: borderImg,
-                    widgetLayout: widgetLayout,
-                    galleryId: gallery.id,
-                    hotSpotHoverColor: hotSpotHoverColor,
-                    hotSpotColor: hotSpotColor,
-                    heading: JSON.stringify(heading),
-                };
+                const idsToDelete = widgetsToDelete.map(widget => widget.id);
 
-                // Tìm account trong currentSettings
-                let accountIndex = currentSettings.accounts?.findIndex(acc => acc.id === account.id);
-                if (accountIndex === -1) {
-                    // Nếu account chưa tồn tại, thêm mới
-                    currentSettings.accounts.push({
-                        id: account?.id,
-                        accessToken: account?.accessToken,
-                        accountName: account?.accountName,
-                        sources: []
-                    });
-                    accountIndex = currentSettings.accounts.length - 1;
+                // Xóa widgetSetting khỏi currentSettings
+                for (let acc of currentSettings.accounts) {
+                    for (let src of acc.sources) {
+                        for (let gal of src.galleries) {
+                            gal.widgetSettings = gal.widgetSettings.filter(setting => !idsToDelete.includes(setting.id));
+                        }
+                    }
                 }
-
-                // Tìm source trong account
-                let sourceIndex = currentSettings.accounts[accountIndex].sources?.findIndex(src => src.id === source.id);
-                if (sourceIndex === -1) {
-                    // Nếu source chưa tồn tại, thêm mới
-                    currentSettings.accounts[accountIndex].sources.push({
-                        id: source?.id,
-                        sourceName: source?.sourceName,
-                        items: source?.items,
-                        accountId: source?.accountId,
-                        galleries: []
-                    });
-                    sourceIndex = currentSettings.accounts[accountIndex].sources.length - 1;
-                }
-
-                // Tìm gallery trong source
-                let galleryIndex = currentSettings.accounts[accountIndex].sources[sourceIndex].galleries?.findIndex(gal => gal.id === gallery.id);
-                if (galleryIndex === -1) {
-                    // Nếu gallery chưa tồn tại, thêm mới
-                    currentSettings.accounts[accountIndex].sources[sourceIndex].galleries.push({
-                        id: gallery?.id,
-                        galleryName: gallery?.galleyName,
-                        taggerProducts: gallery?.taggerProducts,
-                        sourceId: gallery?.sourceId,
-                        widgetSettings: []
-                    });
-                    galleryIndex = currentSettings.accounts[accountIndex].sources[sourceIndex].galleries.length - 1;
-                }
-
-                currentSettings.accounts[accountIndex].sources[sourceIndex].galleries[galleryIndex].widgetSettings.push(newSetting);
 
                 const newMetafield = new admin.rest.resources.Metafield({ session });
                 newMetafield.namespace = "custom";
-                newMetafield.key = "account_data";
+                newMetafield.key = "setting_data";
                 newMetafield.value = JSON.stringify(currentSettings);
                 newMetafield.type = "json";
 
-                await newMetafield.save({ update: metafields.length > 0 });
+                await newMetafield.save({ update: true });
+
+                await db.widgetSetting.deleteMany({
+                    where: { id: { in: widgetIds } }
+                });
 
                 return json({
                     success: true,
-                    message: "Widget created successfully."
-                }, { status: 201 });
+                    message: `${widgetsToDelete.length} widgets deleted successfully.`
+                }, { status: 200 });
             }
-        } else if (actionType === "delete") {
-            const widgetsToDelete = await db.widgetSetting.findMany({
-                where: { id: { in: widgetIds } },
-                select: { id: true }
-            });
+            case "select_gallery": {
+                const gallery = await db.gallery.findFirst({ where: { galleyName: gallary } });
+                const source = await db.source.findFirst({ where: { id: gallery.sourceId } });
+                const account = await db.account.findFirst({ where: { id: source.accountId } });
+                const accessToken = account.accessToken
+                if (accessToken) {
+                    try {
+                        const response = await axios.get('https://graph.instagram.com/me', {
+                            params: {
+                                fields: 'profile_picture_url,username,media{caption,media_type,media_url,comments_count,like_count,timestamp}',
+                                access_token: accessToken
+                            }
+                        });
 
-            const idsToDelete = widgetsToDelete.map(widget => widget.id);
+                        const posts = response?.data;
+                        return json({
+                            posts: posts,
+                            success: true,
+                            message: `Selected gallery`,
+                        });
 
-            // Xóa widgetSetting khỏi currentSettings
-            for (let acc of currentSettings.accounts) {
-                for (let src of acc.sources) {
-                    for (let gal of src.galleries) {
-                        gal.widgetSettings = gal.widgetSettings.filter(setting => !idsToDelete.includes(setting.id));
+                    } catch (error) {
+                        console.error('Lỗi khi lấy bài viết:', error.response?.data || error.message);
+                        throw error;
                     }
                 }
             }
-
-            const newMetafield = new admin.rest.resources.Metafield({ session });
-            newMetafield.namespace = "custom";
-            newMetafield.key = "account_data";
-            newMetafield.value = JSON.stringify(currentSettings);
-            newMetafield.type = "json";
-
-            await newMetafield.save({ update: true });
-
-            await db.widgetSetting.deleteMany({
-                where: { id: { in: widgetIds } }
-            });
-
-            return json({
-                success: true,
-                message: `${widgetsToDelete.length} widgets deleted successfully.`
-            }, { status: 200 });
-        } else {
-            return json({ error: "Unknown action type." }, { status: 400 });
+            default:
+                return json({ error: "Unknown action type." }, { status: 400 });
         }
+
+        // if (actionType === "create") {
+        //     //Kiểm tra nếu tồn tại Id thì update nếu không thì tạo mới
+        //     const existingSetting = await db.widgetSetting.findFirst({ where: { id: widgetId } });
+        //     if (existingSetting) {
+        //         const updatedSetting = {
+        //             widgetName: widgetName,
+        //             gallary: gallary,
+        //             widgetTemplate: widgetTemplate,
+        //             numberOfColumns: numberOfColumns,
+        //             numberOfRows: numberOfRows,
+        //             paddingImg: paddingImg,
+        //             borderImg: borderImg,
+        //             widgetLayout: widgetLayout,
+        //             hotSpotHoverColor: hotSpotHoverColor,
+        //             hotSpotColor: hotSpotColor,
+        //             heading: JSON.stringify(heading),
+        //         };
+
+        //         // Tìm và cập nhật setting trong currentSettings
+        //         for (let acc of currentSettings.accounts) {
+        //             for (let src of acc.sources) {
+        //                 for (let gal of src.galleries) {
+        //                     const indexToUpdate = gal.widgetSettings.findIndex(setting => setting.id === widgetId);
+        //                     if (indexToUpdate !== -1) {
+        //                         gal.widgetSettings[indexToUpdate] = { ...gal.widgetSettings[indexToUpdate], ...updatedSetting };
+        //                         break;
+        //                     }
+        //                 }
+        //             }
+        //         }
+
+        //         const newMetafield = new admin.rest.resources.Metafield({ session });
+        //         newMetafield.namespace = "custom";
+        //         newMetafield.key = "setting_data";
+        //         newMetafield.value = JSON.stringify(currentSettings);
+        //         newMetafield.type = "json";
+
+        //         await newMetafield.save({ update: true });
+
+        //         await db.widgetSetting.update({
+        //             where: { id: widgetId },
+        //             data: updatedSetting
+        //         });
+
+        //         return json({
+        //             success: true,
+        //             message: "Widget updated successfully."
+        //         }, { status: 200 });
+        //     } else {
+        //         const gallery = await db.gallery.findFirst({ where: { galleyName: gallary } });
+        //         const source = await db.source.findFirst({ where: { id: gallery.sourceId } });
+        //         const account = await db.account.findFirst({ where: { id: source.accountId } });
+
+        //         const createdWidget = await db.widgetSetting.create({
+        //             data: {
+        //                 widgetName: widgetName,
+        //                 gallary: gallary,
+        //                 widgetTemplate: widgetTemplate,
+        //                 numberOfColumns: numberOfColumns,
+        //                 numberOfRows: numberOfRows,
+        //                 paddingImg: paddingImg,
+        //                 borderImg: borderImg,
+        //                 widgetLayout: widgetLayout,
+        //                 galleryId: gallery.id,
+        //                 hotSpotHoverColor: hotSpotHoverColor,
+        //                 hotSpotColor: hotSpotColor,
+        //                 heading: JSON.stringify(heading),
+        //             }
+        //         });
+
+        //         const newSetting = {
+        //             id: createdWidget.id,
+        //             widgetName: widgetName,
+        //             gallery: gallary,
+        //             widgetTemplate: widgetTemplate,
+        //             numberOfColumns: numberOfColumns,
+        //             numberOfRows: numberOfRows,
+        //             paddingImg: paddingImg,
+        //             borderImg: borderImg,
+        //             widgetLayout: widgetLayout,
+        //             galleryId: gallery.id,
+        //             hotSpotHoverColor: hotSpotHoverColor,
+        //             hotSpotColor: hotSpotColor,
+        //             heading: JSON.stringify(heading),
+        //         };
+
+        //         // Tìm account trong currentSettings
+        //         let accountIndex = currentSettings.accounts?.findIndex(acc => acc.id === account.id);
+        //         if (accountIndex === -1) {
+        //             // Nếu account chưa tồn tại, thêm mới
+        //             currentSettings.accounts.push({
+        //                 id: account?.id,
+        //                 accessToken: account?.accessToken,
+        //                 accountName: account?.accountName,
+        //                 sources: []
+        //             });
+        //             accountIndex = currentSettings.accounts.length - 1;
+        //         }
+
+        //         // Tìm source trong account
+        //         let sourceIndex = currentSettings.accounts[accountIndex].sources?.findIndex(src => src.id === source.id);
+        //         if (sourceIndex === -1) {
+        //             // Nếu source chưa tồn tại, thêm mới
+        //             currentSettings.accounts[accountIndex].sources.push({
+        //                 id: source?.id,
+        //                 sourceName: source?.sourceName,
+        //                 items: source?.items,
+        //                 accountId: source?.accountId,
+        //                 galleries: []
+        //             });
+        //             sourceIndex = currentSettings.accounts[accountIndex].sources.length - 1;
+        //         }
+
+        //         // Tìm gallery trong source
+        //         let galleryIndex = currentSettings.accounts[accountIndex].sources[sourceIndex].galleries?.findIndex(gal => gal.id === gallery.id);
+        //         if (galleryIndex === -1) {
+        //             // Nếu gallery chưa tồn tại, thêm mới
+        //             currentSettings.accounts[accountIndex].sources[sourceIndex].galleries.push({
+        //                 id: gallery?.id,
+        //                 galleryName: gallery?.galleyName,
+        //                 taggerProducts: gallery?.taggerProducts,
+        //                 sourceId: gallery?.sourceId,
+        //                 widgetSettings: []
+        //             });
+        //             galleryIndex = currentSettings.accounts[accountIndex].sources[sourceIndex].galleries.length - 1;
+        //         }
+
+        //         currentSettings.accounts[accountIndex].sources[sourceIndex].galleries[galleryIndex].widgetSettings.push(newSetting);
+
+        //         const newMetafield = new admin.rest.resources.Metafield({ session });
+        //         newMetafield.namespace = "custom";
+        //         newMetafield.key = "setting_data";
+        //         newMetafield.value = JSON.stringify(currentSettings);
+        //         newMetafield.type = "json";
+
+        //         await newMetafield.save({ update: metafields.length > 0 });
+
+        //         return json({
+        //             success: true,
+        //             message: "Widget created successfully."
+        //         }, { status: 201 });
+        //     }
+        // } else if (actionType === "delete") {
+        //     const widgetsToDelete = await db.widgetSetting.findMany({
+        //         where: { id: { in: widgetIds } },
+        //         select: { id: true }
+        //     });
+
+        //     const idsToDelete = widgetsToDelete.map(widget => widget.id);
+
+        //     // Xóa widgetSetting khỏi currentSettings
+        //     for (let acc of currentSettings.accounts) {
+        //         for (let src of acc.sources) {
+        //             for (let gal of src.galleries) {
+        //                 gal.widgetSettings = gal.widgetSettings.filter(setting => !idsToDelete.includes(setting.id));
+        //             }
+        //         }
+        //     }
+
+        //     const newMetafield = new admin.rest.resources.Metafield({ session });
+        //     newMetafield.namespace = "custom";
+        //     newMetafield.key = "setting_data";
+        //     newMetafield.value = JSON.stringify(currentSettings);
+        //     newMetafield.type = "json";
+
+        //     await newMetafield.save({ update: true });
+
+        //     await db.widgetSetting.deleteMany({
+        //         where: { id: { in: widgetIds } }
+        //     });
+
+        //     return json({
+        //         success: true,
+        //         message: `${widgetsToDelete.length} widgets deleted successfully.`
+        //     }, { status: 200 });
+        // } else{
+        //     return json({ error: "Unknown action type." }, { status: 400 });
+        // }
     } catch (error) {
         console.error("Cannot load database!", error);
         return json({ error: "Internal server error." }, { status: 500 });
@@ -308,12 +514,13 @@ export const action = async ({ request, params }) => {
 export default function TabsWithTablesExample() {
     //Load data từ loader
     const loaderData = useLoaderData()
-    const posts = loaderData?.posts || [] // Biến lưu thông tin bài viết
+   // const posts = loaderData?.posts || [] // Biến lưu thông tin bài viết
     const widget = loaderData?.widget || [] // Biến lưu thông tin mảng setting
     const gallerys = loaderData?.gallerys || []
     const [searchParams] = useSearchParams()
     const modalId = searchParams.get("id")
     const fetcher = useFetcher()
+    const [posts, setPosts] = useState(fetcher.data?.posts || [])
 
     //Tạo biến để sử dụng modal và savebar
     const shopify = useAppBridge()
@@ -333,13 +540,25 @@ export default function TabsWithTablesExample() {
                 duration: 1500,
             })
             // Ẩn save bar
-            shopify.saveBar.hide("my-save-bar")
+           
             shopify.loading(false) // tắt loading
             setIsLoaded(true)
             setIsSaving(false)
-            if (fetcher.data?.message == "Widget updated successfully.") return //Không làm gì nếu update
-            else if (fetcher.data?.message == "Widget created successfully.") navigate(`?id=${widgetLength}`) //Chuyển đến id vừa được tạo
-            else shopify.modal.hide('modal-confirm-delete') // ẩn modal xác nhận xóa
+            switch (fetcher.data?.message) {
+                case "Widget updated successfully.":
+                    shopify.saveBar.hide("my-save-bar")
+                    return; // Không làm gì nếu update
+                case "Widget created successfully.":
+                    shopify.saveBar.hide("my-save-bar")
+                    navigate(`?id=${widgetLength}`); // Chuyển đến id vừa được tạo
+                    break;
+                case "Selected gallery":
+                    setPosts(fetcher.data?.posts)
+                    break;
+                default:
+                    shopify.modal.hide('modal-confirm-delete'); // ẩn modal xác nhận xóa
+                    break;
+            }
         }
     }, [isSaving, isLoaded, shopify, fetcher.state, fetcher.data?.message, navigate, widget.length]); // Chạy effect khi isSaving hoặc privacyValue thay đổi
     //Hàm xử lý nút save của savebar
@@ -376,6 +595,18 @@ export default function TabsWithTablesExample() {
             console.log("Cannot save!");
         } finally {
             setIsSaving(true) // Ẩn SaveBar
+        }
+    }
+    //Hàm chọn gallery để lấy đúng source
+    const handleSelectGallery = async (gallary) => {
+        try {
+            const formData = new FormData();
+            formData.append("_action", "select_gallery");
+            formData.append("gallary", gallary);
+            await fetcher.submit(formData, { method: "post" });
+            shopify.loading(true);
+        } catch (error) {
+            console.error("Error deleting account:", error);
         }
     }
     //Hàm xóa bản ghi widget setting
@@ -423,10 +654,11 @@ export default function TabsWithTablesExample() {
         [showError]
     );
     //Xử lý input select
-    const [selectedSelect, setSelectedSelect] = useState(gallerys[0].galleyName);
+    const [selectedSelect, setSelectedSelect] = useState(gallerys[0]?.galleyName);
     const handleSelectChange = useCallback(
         (value) => {
             setSelectedSelect(value);
+            handleSelectGallery(value)
         },
         [],
     );
@@ -703,6 +935,18 @@ export default function TabsWithTablesExample() {
     const isFormChanged = (id) => {
         const formValues = defaultForm(id); // Gọi hàm và lưu kết quả vào biến
         console.log("🚀 ~ isFormChanged ~ formValues:", formValues)
+        console.log("🚀 ~ isFormChanged ~ valueHotspotHover:", valueHotspotHover)
+        console.log("🚀 ~ isFormChanged ~ valueHotspotColor:", valueHotspotColor)
+        console.log("🚀 ~ isFormChanged ~ selectedHeadingSetting[0]:", selectedHeadingSetting[0])
+        console.log("🚀 ~ isFormChanged ~ switchChoiceHeadingTitle:", switchChoiceHeadingTitle)
+        console.log("🚀 ~ isFormChanged ~ switchChoiceHeadingDesc:", switchChoiceHeadingDesc)
+        console.log("🚀 ~ isFormChanged ~ selectedSelect:", selectedSelect)
+        console.log("🚀 ~ isFormChanged ~ selectedLayout:", selectedLayout)
+        console.log("🚀 ~ isFormChanged ~ rangeValuePadding:", rangeValuePadding)
+        console.log("🚀 ~ isFormChanged ~ rangeValueBorder:", rangeValueBorder)
+        console.log("🚀 ~ isFormChanged ~ rangeValueRow:", rangeValueRow)
+        console.log("🚀 ~ isFormChanged ~ rangeValueColumn:", rangeValueColumn)
+        console.log("🚀 ~ isFormChanged ~ textFieldValue:", textFieldValue)
 
         return (
             textFieldValue !== formValues.widgetName ||
@@ -719,6 +963,7 @@ export default function TabsWithTablesExample() {
             valueHotspotHover !== formValues.colorPopup
         )
 
+
     }
 
     const defaultForm = (index) => {
@@ -726,17 +971,17 @@ export default function TabsWithTablesExample() {
 
         return {
             widgetName: widget[index]?.widgetName || '',
-            gallery: widget[index]?.gallary || 'default',
+            gallery: widget[index]?.gallary || gallerys[0]?.galleyName,
             rangeValueColumn: widget[index]?.numberOfColumns || 4,
             rangeValueRow: widget[index]?.numberOfRows || 2,
-            rangeValuePadding: widget[index]?.paddingImg || 0,
+            rangeValuePadding: widget[index]?.paddingImg || 1,
             rangeValueBorder: widget[index]?.borderImg || 1,
             widgetLayout: widget[index]?.widgetLayout || 1,
             basicTitle: ojectHeading.switchChoiceHeadingTitle || false,
             basicDesc: ojectHeading.switchChoiceHeadingDesc || false,
-            accountInfor: ojectHeading.selectedHeadingSetting || "none",
-            colorHotspot: widget[index]?.hotSpotColor || '',
-            colorPopup: widget[index]?.hotSpotHoverColor || ''
+            accountInfor: ojectHeading.selectedHeadingSetting || "basic",
+            colorHotspot: widget[index]?.hotSpotColor || '#00FF00',
+            colorPopup: widget[index]?.hotSpotHoverColor || '#00FF00B3'
         };
     };
     //Kiểm tra thay đổi setting theo từng bản ghi
@@ -746,10 +991,13 @@ export default function TabsWithTablesExample() {
             // Ẩn saveBar khi đang reset
             shopify.saveBar.hide("my-save-bar");
             setIsResetting(false); // Reset trạng thái sau khi xử lý
+            console.log("empty form");
+
         }
         else if (isFormChanged(currentIdWidget)) {
             setIsLoaded(false);
             shopify.saveBar.show("my-save-bar");
+            console.log("show savebar");
         } else {
             setIsLoaded(true);
             shopify.saveBar.hide("my-save-bar");
@@ -785,21 +1033,11 @@ export default function TabsWithTablesExample() {
         setRangeValuePadding(formValues.rangeValuePadding);
         setSelectedLayout(formValues.widgetLayout)
         setCurrentView("default")
-        setSwitchChoiceHeadingDesc(false)
-        setSwitchChoiceHeadingTitle(false)
-        setSelectedHeadingSetting(["basic"])
-        setColorHotspotColor({
-            hue: 120,
-            brightness: 1,
-            saturation: 1,
-            alpha: 0.7,
-        })
-        setColorHotspotHover({
-            hue: 120,
-            brightness: 1,
-            saturation: 1,
-            alpha: 0.7,
-        })
+        setSwitchChoiceHeadingDesc(formValues.basicDesc)
+        setSwitchChoiceHeadingTitle(formValues.basicTitle)
+        setSelectedHeadingSetting([formValues.accountInfor])
+        setValueHotspotColor(formValues.colorHotspot)
+        setValueHotspotHover(formValues.colorPopup)
     };
 
 
@@ -808,7 +1046,7 @@ export default function TabsWithTablesExample() {
         setCurrentIdWidget(null)
         setIsResetting(true); // Bật cờ reset
         setTextFieldValue("")
-        setSelectedSelect('default')
+        setSelectedSelect(gallerys[0]?.galleyName)
         setRangeValueColumn(4)
         setRangeValueRow(2)
         setRangeValueBorder(1)
@@ -861,7 +1099,7 @@ export default function TabsWithTablesExample() {
                                     label="Gallery"
                                     options={[
                                         { label: 'Select gallery', value: 'default', disabled: true },
-                                        ...gallerys.map(gallery => ({ label: gallery.galleyName, value: gallery.galleyName }))
+                                        ...gallerys.map(gallery => ({ label: gallery?.galleyName, value: gallery?.galleyName }))
                                     ]}
                                     onChange={handleSelectChange}
                                     value={selectedSelect}
@@ -1094,7 +1332,7 @@ export default function TabsWithTablesExample() {
                                                         <span style={{ color: "#FFFFFF" }}>Follow</span>
                                                     </div>
                                                 </div>
-                                                <div class="preview-instagram-popup-detail-content">
+                                                <div className="preview-instagram-popup-detail-content">
                                                     Go behind the scenes and discover how Smarties became the first global confectionery brand to switch to recyclable paper packaging.
                                                     A move that goes a long way to achieving our goal of 100% recyclable or reusable packaging by 2025.Visit the link in our bio for the full story.
                                                 </div>
@@ -1186,7 +1424,7 @@ export default function TabsWithTablesExample() {
                 );
             case 3:
                 return (
-                    <div class="grid-container">
+                    <div className="grid-container">
                         {posts.media.data.map((image, index) => (
                             <img className={`item${index}`} key={index} src={image.media_url} alt={image.alt} style={{ width: "100%" }} />
                         ))}
@@ -1227,7 +1465,7 @@ export default function TabsWithTablesExample() {
                 );
             case 5:
                 return (
-                    <div class="grid-container-grid">
+                    <div className="grid-container-grid">
                         {posts.media.data.map((image, index) => (
                             <img className={`item-grid${index}`} key={index} src={image.media_url} alt={image.alt} style={{ width: "100%" }} />
                         ))}
@@ -1235,7 +1473,7 @@ export default function TabsWithTablesExample() {
                 );
             case 6:
                 return (
-                    <div class="grid-container-highlight-center">
+                    <div className="grid-container-highlight-center">
                         {posts.media.data.map((image, index) => (
                             <img className={`item-center${index}`} key={index} src={image.media_url} alt={image.alt} style={{ width: "100%" }} />
                         ))}
@@ -1658,12 +1896,14 @@ export default function TabsWithTablesExample() {
         return (
             <IndexTable.Row
                 onClick={() => {
+                    const formValues = defaultForm(id); // Gọi hàm và lưu kết quả vào biến
                     setActiveStep1(0); shopify.modal.show('my-modal');
                     navigate(`?id=${id}`);
                     setCurrentIdWidget(id);
                     defaultForm(id);
                     resetForm(id);
-                    setPreviewShoping(true)
+                    setPreviewShoping(true);
+                    handleSelectGallery(formValues.gallery)
                 }}
                 id={id}
                 key={id}
@@ -1810,7 +2050,7 @@ export default function TabsWithTablesExample() {
 
     return (
         <>
-            <Page fullWidth title="All widget" primaryAction={<Button icon={PlusIcon} variant="primary" onClick={() => { setActiveStep1(0); shopify.modal.show('my-modal'); emptyForm(); navigate('?new'); setPreviewShoping(true) }}>Create widget</Button>}>
+            <Page fullWidth title="All widget" primaryAction={<Button icon={PlusIcon} variant="primary" onClick={() => { setActiveStep1(0); shopify.modal.show('my-modal'); emptyForm(); navigate('?new'); setPreviewShoping(true); handleSelectGallery(gallerys[0]?.galleyName) }}>Create widget</Button>}>
                 <LegacyCard>
                     <Tabs tabs={tabs} selected={selected} onSelect={handleTabChange} >
                         <LegacyCard.Section>

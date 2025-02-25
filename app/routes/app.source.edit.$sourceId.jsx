@@ -35,11 +35,20 @@ import { authenticate } from "../shopify.server";
 export const links = () => [{ rel: "stylesheet", href: styles }];
 
 export async function loader({ request }) {
+    const url = new URL(request.url);
+    const sourceId = parseInt(url.pathname.split('/').pop(), 10);
+    
     const { admin, session } = await authenticate.admin(request);
-    const widget = await db.account.findFirst({
-        where: { sessionId: session.id },
+    const source = await db.source.findFirst({
+        where:{
+            id: sourceId
+        }
     })
-    const accessToken = widget?.accessToken
+
+    const account = await db.account.findFirst({
+        where: { id: source.accountId },
+    })
+    const accessToken = account?.accessToken
     if (accessToken) {
         try {
             const response = await axios.get('https://graph.instagram.com/me', {
@@ -50,44 +59,12 @@ export async function loader({ request }) {
             });
 
             const posts = response?.data;
-            const responseProducts = await admin.graphql(
-                `#graphql
-                query {
-                    products (first: 50, query: "status:active AND published_status:published") {
-                        nodes {
-                        id
-                        title
-                        images(first: 1) {
-                            edges {
-                            node {
-                                src
-                            }
-                            }
-                        }
-                        variants(first: 1) {
-                            edges {
-                            node {
-                                price
-                            }
-                            }
-                        }
-                        }
-                    }
-                }`,
-            );
-
-            const data = await responseProducts.json();
-            const products = data.data.products
-            console.log('data: ', data.data.products);
-            return json({ posts, products });
+            return json({ posts,source });
         } catch (error) {
             console.error('Lỗi khi lấy bài viết:', error.response?.data || error.message);
             throw error;
         }
     }
-
-
-
     return null;
 }
 
@@ -107,9 +84,9 @@ export default function Source() {
 
     const loaderData = useLoaderData();
     const posts = loaderData?.posts || []
-    const productsLoader = loaderData?.products || []
+    const source = loaderData?.source || {}
 
-    const [textFieldValue, setTextFieldValue] = useState(posts?.username);
+    const [textFieldValue, setTextFieldValue] = useState(source?.sourceName);
 
     const handleTextFieldChange = useCallback(
         (value) => setTextFieldValue(value),
@@ -284,7 +261,7 @@ export default function Source() {
                                         <Box width='99%' >
                                             <BlockStack gap="500">
                                                 <TextField
-                                                    label="Store name"
+                                                    label="Source name"
                                                     value={textFieldValue}
                                                     onChange={handleTextFieldChange}
                                                     maxLength={20}

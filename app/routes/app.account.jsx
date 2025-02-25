@@ -1,11 +1,13 @@
-import { useAppBridge } from '@shopify/app-bridge-react';
-import { Link, AccountConnection, Box, Text, Page, Button } from '@shopify/polaris';
-import { PlusIcon } from '@shopify/polaris-icons';
+import { useAppBridge, Modal, TitleBar, } from '@shopify/app-bridge-react';
+import { Link, AccountConnection, Box, Text, Page, Button, Icon, InlineStack, BlockStack,Spinner } from '@shopify/polaris';
+import { PlusIcon, DeleteIcon, DatabaseIcon, ImageIcon } from '@shopify/polaris-icons';
 import { useState, useEffect } from 'react';
 import { json } from "@remix-run/node";
 import { useLoaderData, useFetcher } from "@remix-run/react";
 import db from "../db.server";
 import { authenticate } from "../shopify.server";
+import styles from '../style/style-widget.css?url'
+export const links = () => [{ rel: "stylesheet", href: styles }];
 
 export async function loader({ request }) {
     const { session } = await authenticate.admin(request);
@@ -64,25 +66,21 @@ export async function action({ request }) {
             console.log("🚀 ~ accountObject ~ accountObject:", accountObject)
             return json({
                 success: false,
-                message: `Delete source failed. Please delete all gallerys before delete source.`,
+                message: `Delete account failed.`,
                 account: accountObject,
             });
+        } else {
+            const accountDelete = await db.account.delete({
+                where: {
+                    id: accountId,
+                },
+            });
+            console.log('accountDelete: ', accountDelete);
+            return json({
+                success: true,
+                message: `Logout successfully.`,
+            });
         }
-
-
-
-
-        //xóa tài khoản
-        // const accountDelete = await db.account.delete({
-        //     where: {
-        //         id: accountId,
-        //     },
-        // });
-        //console.log('accountDelete: ', accountDelete);
-        return json({
-            success: true,
-            message: `Logout successfully.`,
-        });
     } catch (error) {
         console.error("Cannot delete account from database!", error);
         return json({ error: "Internal server error." }, { status: 500 });
@@ -93,8 +91,12 @@ export default function AccountConnectionExample() {
     const shopify = useAppBridge()
     const fetcher = useFetcher();
     const { account } = useLoaderData();
+    console.log("🚀 ~ AccountConnectionExample ~ account:", account)
     const [connected, setConnected] = useState(false);
-    
+    const [reload, setReload] = useState(false)
+    const [accountObject, setAccountObject] = useState(fetcher.data?.account)
+    const [currentIdAccount, setCurrentIdAccount] = useState()
+
 
     useEffect(() => {
         shopify.loading(false)
@@ -105,20 +107,37 @@ export default function AccountConnectionExample() {
 
     useEffect(() => {
         if (fetcher.state === "loading") {
-            // Hiển thị toast khi lưu và load dữ liệu thành công
-            shopify.toast.show(fetcher.data?.message, {
-                duration: 2500,
-            })
-            console.log("data:",fetcher.data.account);
-            
+
+            switch (fetcher.data?.message) {
+                case "Logout successfully.":
+                    shopify.toast.show(fetcher.data?.message, { duration: 2500 });
+                    shopify.modal.hide('modal-confirm-delete');
+                    shopify.modal.hide('modal-confirm-delete-sub');
+                    break;
+                case "Delete account failed.":
+                    shopify.modal.hide('modal-confirm-delete');
+                    shopify.modal.show('modal-confirm-delete-sub');
+                    break;
+                default:
+                    break;
+            }
+            console.log("data:", fetcher.data.account);
+
             shopify.loading(false) // tắt loading
             setConnected(false);
         }
     }, [shopify, fetcher.state, fetcher.data?.message])
 
+    useEffect(() => {
+        if (fetcher.data?.account) {
+            setAccountObject(fetcher.data?.account);
+        }
+    }, [fetcher.data, accountObject]);
+
     const url = "https://www.instagram.com/oauth/authorize?enable_fb_login=0&force_authentication=1&client_id=1711527026305376&redirect_uri=https://admin.shopify.com/store/test-qr-app/apps/test-theme-28/app/callback&response_type=code&scope=instagram_business_basic%2Cinstagram_business_manage_messages%2Cinstagram_business_manage_comments%2Cinstagram_business_content_publish";
 
     const handleLogout = async (id) => {
+        setCurrentIdAccount(id)
         try {
             const formData = new FormData();
             formData.append("id", id);
@@ -128,6 +147,40 @@ export default function AccountConnectionExample() {
             console.error("Error deleting account:", error);
         }
     };
+
+    const handleDeleteById = async (type, id) => {
+        try {
+            const formData = new FormData();
+            formData.append("_action", "delete");
+            formData.append("type", type);
+            formData.append("idToDelete", id);
+            setReload(true);
+            shopify.loading(true);
+            const response = await fetch("/app/submit", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/x-www-form-urlencoded",
+                },
+                body: new URLSearchParams(formData).toString(),
+            });
+            const result = await response.json();
+
+            if (!response.ok) {
+                shopify.toast.show(result.message, { duration: 2500 });
+                shopify.loading(false);
+                setReload(false);
+                return;
+            } else {
+                handleLogout(currentIdAccount)
+                shopify.toast.show(result.message, { duration: 2500 });
+                shopify.loading(false);
+                setReload(false);
+                return result;
+            }
+        } catch (error) {
+            console.error("Error deleting :", error);
+        }
+    }
 
     const buttonText = connected ? 'Disconnect' : 'Connect';
     const details = connected ? 'Account connected' : 'No account connected';
@@ -141,7 +194,7 @@ export default function AccountConnectionExample() {
 
     return (
         <>
-            <Page title="All account" primaryAction={<Button icon={PlusIcon} variant="primary" onClick={() => { }}>Add account</Button>}>
+            <Page title="All account" primaryAction={<Button icon={PlusIcon} variant="primary" onClick={() => {window.open(url, "_parent") }}>Add account</Button>}>
                 {account?.length > 0 ? (
                     account.map((acc, index) => (
                         <Box padding="400" key={index}>
@@ -175,49 +228,62 @@ export default function AccountConnectionExample() {
                 )}
             </Page>
 
-              <Modal id="modal-confirm-delete">
-                            <Box padding='400'>
-                                <p>This can't be undone.</p>
-                            </Box>
-                            <TitleBar title="Delete selected widget(s)?">
-                                <button loading={(fetcher.state === "submitting") ? ("true") : undefined} onClick={() => { handleDeleteSource(selectedResources); }} tone="critical" variant="primary">Confirm</button>
-                                <button disabled={false} onClick={() => { clearSelection(); shopify.modal.hide('modal-confirm-delete') }}>Cancel</button>
-                            </TitleBar>
-                        </Modal>
-            
-                        <Modal id="modal-confirm-delete-sub">
-                            {reload ? (<InlineStack blockAlign='center' align='center'><Spinner accessibilityLabel="Spinner example" size="large" /></InlineStack>) : (
-                                <Box padding='400'>
-                                    <div className="modal-required-delete-source">
-                                        <p className='modal-required-delete-source-title' style={{ marginBottom: '16px' }}>Remove the items listed below before deleting the media source(s) to ensure your data is accurate, consistent, and complete.</p>
-                                        <div className="modal-required-delete-source-list-tree">
-                                            {sourceToDeletes?.map((source, index) => (
-            
-                                                <ul key={index} className="tree" >
-                                                    <li className="first-source-tree">
-                                                        <Box paddingBlockEnd="200">
-                                                            <InlineStack blockAlign='center' gap='200'>
-                                                                <div>
-                                                                    <Icon
-                                                                        source={DatabaseIcon}
-                                                                        tone="base"
-                                                                    />
-                                                                </div>
-                                                                <div className="label">Media source:</div>
-                                                                <div className="name">{source.sourceName}</div>
-                                                                {source.galleries.length === 0 && (
-                                                                    <span onClick={() => handleDeleteById("source", source.id)} className="button-delete">
-                                                                        <Icon
-                                                                            source={DeleteIcon}
-                                                                            tone="critical"
-                                                                        />
-                                                                    </span>
-                                                                )}
-            
-                                                            </InlineStack>
-                                                        </Box>
+            <Modal id="modal-confirm-delete">
+                <Box padding='400'>
+                    <p>This can't be undone.</p>
+                </Box>
+                <TitleBar title="Delete selected widget(s)?">
+                    <button loading={(fetcher.state === "submitting") ? ("true") : undefined} onClick={() => { }} tone="critical" variant="primary">Confirm</button>
+                    <button disabled={false} onClick={() => { shopify.modal.hide('modal-confirm-delete') }}>Cancel</button>
+                </TitleBar>
+            </Modal>
+
+            <Modal id="modal-confirm-delete-sub">
+                {reload ? (<InlineStack blockAlign='center' align='center'><Spinner accessibilityLabel="Spinner example" size="large" /></InlineStack>) : (
+                    <Box padding='400'>
+                        <div className="modal-required-delete-source">
+                            <p className='modal-required-delete-source-title' style={{ marginBottom: '16px' }}>Remove the items listed below before deleting the media source(s) to ensure your data is accurate, consistent, and complete.</p>
+                            <div className="modal-required-delete-source-list-tree">
+                                {accountObject?.map((acc, index) => (
+
+                                    <ul key={index} className="tree" >
+                                        <li className="first-source-tree">
+                                            <Box paddingBlockEnd="200">
+                                                <InlineStack blockAlign='center' gap='200'>
+                                                    <div>
+                                                        <Icon
+                                                            source={DatabaseIcon}
+                                                            tone="base"
+                                                        />
+                                                    </div>
+                                                    <div className="label">Account:</div>
+                                                    <div className="name">{acc.accountName}</div>
+                                                    {acc.sourcesInLoop.length === 0 && (
+                                                        <span onClick={() => handleDeleteById("account", acc.id)} className="button-delete">
+                                                            <Icon
+                                                                source={DeleteIcon}
+                                                                tone="critical"
+                                                            />
+                                                        </span>
+                                                    )}
+
+                                                </InlineStack>
+                                            </Box>
+                                            {acc.sourcesInLoop?.map((source, index) => (
+                                                <ul key={index} style={{ paddingInlineStart: '10px' }}>
+                                                    <li style={{ listStyle: 'none' }} className="sub-source-tree">
+                                                        <span>
+                                                            <img style={{ marginRight: '8px' }} src="https://widget.onecommerce.io/assets/gallery-thumb-BSZc8u2k.svg" alt="image" />
+                                                        </span>
+                                                        <span className="label">Source:</span>
+                                                        <span className="name"> {source.sourceName}</span>
+                                                        {source.galleries.length === 0 && (
+                                                            <span onClick={() => handleDeleteById("source", source.id)} style={{ marginLeft: '8px' }} className="button-delete">
+                                                                <img src="https://widget.onecommerce.io/assets/delete-icon-tqm6UhHJ.svg" alt="" />
+                                                            </span>
+                                                        )}
                                                         {source.galleries?.map((gallery, index) => (
-                                                            <ul key={index} style={{ paddingInlineStart: '10px' }}>
+                                                            <ul key={index} style={{ paddingInlineStart: '20px' }}>
                                                                 <li style={{ listStyle: 'none' }} className="sub-source-tree">
                                                                     <span>
                                                                         <img style={{ marginRight: '8px' }} src="https://widget.onecommerce.io/assets/gallery-thumb-BSZc8u2k.svg" alt="image" />
@@ -240,7 +306,7 @@ export default function AccountConnectionExample() {
                                                                                 </span>
                                                                                 <span className="label">Widget:</span>
                                                                                 <span className="name">{widget.widgetName}</span>
-                                                                                <span onClick={() => handleDeleteById("widget", widget.id)} className="button-delete">
+                                                                                <span onClick={() => handleDeleteById("widget", widget.id)} className="button-delete" style={{cursor:'pointer'}}>
                                                                                     <Icon
                                                                                         source={DeleteIcon}
                                                                                         tone="critical"
@@ -255,15 +321,18 @@ export default function AccountConnectionExample() {
                                                     </li>
                                                 </ul>
                                             ))}
-                                        </div>
-                                    </div>
-                                </Box>
-                            )}
-                            <TitleBar title="Action required before deleting media source(s)">
-                                <button loading={(fetcher.state === "submitting") ? ("true") : undefined} onClick={() => { handleDeleteSource(selectedResources); clearSelection() }} tone="critical" variant="primary">Confirm</button>
-                                <button disabled={false} onClick={() => { clearSelection(); shopify.modal.hide('modal-confirm-delete-sub') }}>Cancel</button>
-                            </TitleBar>
-                        </Modal>
+                                        </li>
+                                    </ul>
+                                ))}
+                            </div>
+                        </div>
+                    </Box>
+                )}
+                <TitleBar title="Action required before deleting account">
+                    <button loading={(fetcher.state === "submitting") ? ("true") : undefined} onClick={() => { }} tone="critical" variant="primary">Confirm</button>
+                    <button disabled={false} onClick={() => { shopify.modal.hide('modal-confirm-delete-sub') }}>Cancel</button>
+                </TitleBar>
+            </Modal>
         </>
     );
 }

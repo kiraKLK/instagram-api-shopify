@@ -3,7 +3,7 @@
 {% assign current_setting = shop.metafields.instagram.current_setting.value %}
 {% assign gallery = shop.metafields.instagram.gallery.value %}
 {% assign is_design_mode = request.design_mode %}
-{% assign meta_setting_data = shop.metafields.custom.account_data.value %}
+{% assign meta_setting_data = shop.metafields.custom.setting_data.value %}
 {% assign basic_or_account_meta = current_setting.basic_or_account %}
 {% assign basic_title_meta = current_setting.basic_title %}
 {% assign basic_desc_meta = current_setting.basic_desc %}
@@ -11,7 +11,7 @@
 <script>
     const meta_data = {{ meta_setting_data | json }}
     let widgetSettings_0 = [];
-    let accessToken_0 = '';
+    let accessToken_0 = '{{ current_setting.accessToken_0 }}';
     let taggerProducts_0 = '';
     let taggerProductsData = {{ current_setting.taggerProductsData | json}}
     let accessToken = '{{ current_setting.accessToken_0 }}';
@@ -21,7 +21,7 @@
     let basic_desc = '{{current_setting.basic_desc}}'
     let basic_or_account = '{{current_setting.basic_or_account}}'
     let object_heading = ''
-   
+
 
   let widgetSettings = [];
   try {
@@ -178,6 +178,217 @@
  } 
 //END logic case 4 Slider
   document.addEventListener("DOMContentLoaded", function () {
+    function initializeSettings() {
+      // Logic trong window.onload
+      const galleryJson = {{ gallery | json }};
+      console.log("🚀 ~ meta_data:", meta_data);
+      if (!accessToken_0) {
+        console.error('Access token is required.');
+        return;
+      }
+  
+      const url = `https://graph.instagram.com/me?fields=profile_picture_url,username,media{caption,media_type,media_url,comments_count,like_count,timestamp}&access_token=${accessToken_0}`;
+  
+      fetch(url)
+        .then(response => {
+          if (!response.ok) {
+            return response.json().then(errorData => {
+              console.error('Error fetching Instagram posts:', errorData);
+              throw new Error(`HTTP error! Status: ${response.status}`);
+            });
+          }
+          return response.json();
+        })
+        .then(data => {
+          const username = data.username;
+          const avatar = data.profile_picture_url;
+          const mediaData = data.media.data;
+          const gallery = document.getElementById('instagram-images');
+          const row = document.getElementById('row');
+  
+          // Xóa các phần tử cũ
+          gallery.innerHTML = '';
+          row.innerHTML = '';
+  
+          // Hàm tạo modal và gán vào body
+          const createModal = (index) => {
+            const item = mediaData[index];
+            currentIndex = index; // Cập nhật index bài viết hiện tại
+            // Xóa modal cũ nếu đã tồn tại
+            const existingModal = document.getElementById('instagram-modal');
+            if (existingModal) existingModal.remove();
+  
+            // Tạo modal mới
+            const modal = document.createElement('div');
+            modal.id = 'instagram-modal';
+            modal.className = 'modal';
+            modal.innerHTML = `
+              <button class="prevPost" id="prevPost"><svg viewBox="0 0 20 20" class="MP-ChevronLeft" style="width: 25px; height: 25px;"><path fill-rule="evenodd" d="M11.764 5.204a.75.75 0 0 1 .032 1.06l-3.516 3.736 3.516 3.736a.75.75 0 1 1-1.092 1.028l-4-4.25a.75.75 0 0 1 0-1.028l4-4.25a.75.75 0 0 1 1.06-.032Z"></path></svg></button>
+              <button class="nextPost" id="nextPost"><svg viewBox="0 0 20 20" class="MP-ChevronRight" style="width: 25px; height: 25px;"><path fill-rule="evenodd" d="M7.72 14.53a.75.75 0 0 1 0-1.06l3.47-3.47-3.47-3.47a.75.75 0 0 1 1.06-1.06l4 4a.75.75 0 0 1 0 1.06l-4 4a.75.75 0 0 1-1.06 0Z"></path></svg></button>
+              <span class="close">&times;</span>
+              <div class="modal-content">
+                <div class="modal-content-left">
+                  <div class="modal-content-left-wrapper">
+                    <img class="modal-content-left-img" src="${item.media_url}" alt="">
+                    <div id="dots-container">
+                      <div class="dot" style="display:block" onmouseover="showPopup(event, this)" onmouseout="handleMouseOut(event)"></div>
+                    </div>
+                    <div class="popup" id="popup" onmouseover="cancelHidePopup()">
+                      <div class="hotspot-popover-content">
+                        <div id="product-title" style="white-space: 'nowrap'">Lorem ipsum dolor sit, amet consectetur</div>
+                        <div id="product-price" style="white-space: 'nowrap'">100.000đ</div>
+                      </div>
+                      <a class="hotspot-popover-redirect">
+                        <svg style="width: 15px; height:15px" width="4" height="7" viewBox="0 0 4 7" fill="none" xmlns="http://www.w3.org/2000/svg">
+                          <path d="M3.64062 3.71094C3.75781 3.59375 3.75781 3.42969 3.66406 3.3125L0.898438 0.59375C0.78125 0.476562 0.59375 0.476562 0.5 0.59375L0.335938 0.757812C0.21875 0.875 0.21875 1.03906 0.335938 1.15625L2.72656 3.5L0.335938 5.86719C0.21875 5.98438 0.21875 6.14844 0.335938 6.26562L0.5 6.42969C0.59375 6.54688 0.78125 6.54688 0.898438 6.42969L3.64062 3.71094Z" fill="white"></path>
+                        </svg>
+                      </a>
+                      <div style="display:block" class="arrow" id="popup-arrow"></div>
+                    </div>
+                  </div>
+                </div>
+                <div class="modal-content-right">
+                  <div class="modal-content-right-header">
+                    <div class="modal-content-right-header-account">
+                      <div class="modal-content-right-header-account-avatar" style="background-image: url(${data.profile_picture_url});"></div>
+                      <div class="modal-content-right-header-account-name">${data.username}</div>
+                    </div>
+                    <div class="modal-content-right-header-follow">
+                      <span style="color: aliceblue; font-weight: 600;">Follow</span>
+                    </div>
+                  </div>
+                  <div class="modal-content-right-body">
+                    <div class="modal-content-right-body-caption">
+                      ${item.caption || ''}
+                      <div class="modal-content-right-body-product-label">Featured products</div>
+                      <div id="popup-detail-shoppable-grid-id" class="popup-detail-shoppable-grid"></div>
+                    </div>
+                  </div>
+                  <div class="modal-content-right-footer">
+                    <div class="modal-content-right-footer-content">
+                      <div class="modal-content-right-footer-content-display">
+                        <div class="modal-content-right-footer-content-display-left">
+                          <div class="modal-content-right-footer-content-display-left-date">December 10, 2024</div>
+                          <div class="modal-content-right-footer-content-display-left-view"> View on Instagram</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            `;
+  
+            // Thêm modal vào body
+            document.body.appendChild(modal);
+  
+            // Thêm sự kiện đóng modal
+            const closeModal = modal.querySelector('.close');
+            closeModal.addEventListener('click', () => {
+              modal.style.display = 'none';
+            });
+  
+            // Đóng modal khi nhấn ra ngoài
+            modal.addEventListener('click', (event) => {
+              if (event.target === modal) {
+                modal.style.display = 'none';
+              }
+            });
+  
+            // Hiển thị modal
+            modal.style.display = 'block';
+            // Xử lý chuyển bài viết
+            document.getElementById('prevPost').addEventListener('click', () => {
+              const newIndex = (currentIndex - 1 + mediaData.length) % mediaData.length;
+              createModal(newIndex);
+            });
+  
+            document.getElementById('nextPost').addEventListener('click', () => {
+              const newIndex = (currentIndex + 1) % mediaData.length;
+              createModal(newIndex);
+            });
+  
+            // Hiển thị dots từ gallery
+            loadDotsForPost(item.id);
+          };
+  
+          // Render bài viết
+          mediaData.forEach((item, index) => {
+            const postHTML = `
+              <div id="instagram-image${index}" class="instagram-image instagram-image${index}">
+                <img style="width:100%" src="${item.media_url}" alt="${item.caption || 'Instagram Post'}" data-caption="${item.caption || ''}">
+              </div>
+            `;
+            gallery.insertAdjacentHTML('beforeend', postHTML);
+            document.getElementById(`instagram-image${index}`).addEventListener('click', () => createModal(index));
+          });
+  
+          // Render demo slider
+          mediaData.forEach((item, index) => {
+            const postDemoImg = `
+              <div class="column">
+                <img class="demo cursor" src="${item.media_url}" onclick="event.preventDefault(); event.stopPropagation(); currentSlide(${index + 1});" style="width:100%">
+              </div>
+            `;
+            row.insertAdjacentHTML('beforeend', postDemoImg);
+          });
+  
+          // Hàm lấy danh sách dots từ gallery dựa vào ID bài post
+          const loadDotsForPost = (postId) => {
+            const dotsContainer = document.getElementById('dots-container');
+            dotsContainer.innerHTML = ''; // Xóa dots cũ
+  
+            const productContainer = document.getElementById('popup-detail-shoppable-grid-id');
+            productContainer.innerHTML = '';
+  
+            const postGalleryData = taggerProductsData[postId] || []; // Lấy dữ liệu dot theo ID
+  
+            postGalleryData.forEach(dot => {
+              const dotElement = document.createElement('div');
+              dotElement.className = 'dot';
+              dotElement.style.top = `${dot.position.y}%`;
+              dotElement.style.left = `${dot.position.x}%`;
+              dotElement.style.display = 'block';
+              // Thêm sự kiện hiển thị popup khi di chuột vào
+              dotElement.onmouseover = (event) => showPopup(event, dotElement, dot);
+              dotElement.onmouseout = (event) => handleMouseOut(event);
+  
+              const productElement = document.createElement('a');
+              productElement.className = 'popup-detail-shoppable-item';
+              productElement.href = `products/${dot.handle}`;
+              productElement.innerHTML = `
+                <img class="popup-detail-shoppable-item-img" src="${dot.images.edges[0]?.node.src ?? 'https://cdn4.mageplaza.com/assets/appMedia/no-image.webp'}" alt="${dot.title}" />
+                <div class="popup-detail-shoppable-item-detail">
+                  <div class="popup-detail-shoppable-item-detail-title">${dot.title}</div>
+                  <div class="popup-detail-shoppable-item-detail-price">${dot.variants.edges[0].node.price}</div>
+                  <div class="popup-detail-shoppable-item-detail-action">VIEW DETAIL</div>
+                </div>
+              `;
+              // Sự kiện hover vào sản phẩm trong popup-detail
+              productElement.addEventListener("mouseenter", () => {
+                cancelHidePopup(); // Hủy ẩn popup nếu chuột vào sản phẩm
+                showPopup(null, dotElement, dot);
+              });
+              productElement.addEventListener("mouseleave", handleMouseOut);
+  
+              dotsContainer.appendChild(dotElement);
+              productContainer.appendChild(productElement);
+              const dot_color = document.querySelectorAll('.dot');
+              dot_color.forEach(dot => {
+                dot.style.backgroundColor = colorDot;
+              });
+              const popupElements = document.querySelectorAll('.popup');
+              popupElements.forEach(popup => {
+                popup.style.backgroundColor = colorPopup;
+              });
+            });
+          };
+        })
+        .catch(error => {
+          console.error('Error:', error.message);
+        });
+    }
+    // Gọi hàm initializeSettings trong window.onload
+    window.onload = initializeSettings;
     // Kiểm tra xem settings có tồn tại không
     const settings = {{ setting | json }};
     if (!settings || !Array.isArray(settings) || settings.length === 0) {
@@ -191,6 +402,8 @@
     const previewFeedAccountDetail = document.querySelector(".preview-feed-account-detail");
     const previewFeedTitle = document.querySelector(".preview-feed-title");
     const previewFeedDesc = document.querySelector(".preview-feed-desc");
+    basic_title = basic_title === 'true';
+    basic_desc = basic_desc === 'true';
     updateDOM(basic_or_account, basic_title, basic_desc);
 
 
@@ -268,12 +481,14 @@
         // Áp dụng cài đặt
         applySetting(selectedSetting);
         updateDOM(basic_or_account, basic_title, basic_desc);
+         initializeSettings();
       } else {
         console.error("Selected index is invalid or not found in settings.");
       }
     });
 
     function updateDOM(basic_or_account, basic_title, basic_desc) {
+      
       switch (basic_or_account) {
         case 'account':
           previewFeedAccountDetail.style.display = 'block';
@@ -285,7 +500,9 @@
           previewFeedAccountDetail.style.display = 'none';
           previewFeedAccountAvatar.style.display = 'none';
           previewFeedTitle.style.display = basic_title ? 'block' : 'none';
-          previewFeedDesc.style.display = basic_desc ? 'block' : 'none';
+          previewFeedDesc.style.display = basic_desc ? 'block' : 'none'; 
+          console.log("🚀 ~ updateDOM ~ basic_desc:", basic_desc)
+          console.log("🚀 ~ updateDOM ~ basic_title:", basic_title)
           break;
         default:
           previewFeedAccountDetail.style.display = 'none';
@@ -639,7 +856,7 @@
             basic_or_account  
       };
 
-      fetch("https://preference-auto-adventures-dist.trycloudflare.com/api/setting", {
+      fetch("https://honey-exotic-zinc-possibly.trycloudflare.com/api/setting", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -764,32 +981,30 @@
 </style>
 
 <section id="instagram-gallery" style="display: block;">
-  
-    <div class="preview-feed-account">
-      <div class="preview-feed-account-avatar">
-        {% comment %}
-          <img class="preview-feed-account-avatar-main" src="https://widget.onecommerce.io/assets/default-avatar-CdrAMLQT.svg" alt="123" />
-          <img class="preview-feed-account-avatar-instagram-logo" src="https://widget.onecommerce.io/assets/InstagramAvatarIcon-DJZhoqG0.svg" alt="123" />
-        {% endcomment %}
-      </div>
-      <div class="preview-feed-account-detail">
-        <div class="preview-feed-account-detail-header">
-          <div class="preview-feed-account-detail-header-name">Tungvan2024</div>
-          <div class="preview-feed-account-detail-header-button-follow" style="color:#FFFF"><span>Follow</span></div>
-        </div>
-        <div class="preview-feed-account-detail-number">
-          <div class="preview-feed-account-detail-number-post"><b>12</b> Post</div>
-          <div class="preview-feed-account-detail-number-follower"><b>0</b> Follower</div>
-          <div class="preview-feed-account-detail-number-following"><b>0</b> Fllowing</div>
-        </div>
-        <div class="preview-feed-account-detail-account-name">Tungvan2024</div>
-      </div>
+  <div class="preview-feed-account">
+    <div class="preview-feed-account-avatar">
+      {% comment %}
+        <img class="preview-feed-account-avatar-main" src="https://widget.onecommerce.io/assets/default-avatar-CdrAMLQT.svg" alt="123" />
+        <img class="preview-feed-account-avatar-instagram-logo" src="https://widget.onecommerce.io/assets/InstagramAvatarIcon-DJZhoqG0.svg" alt="123" />
+      {% endcomment %}
     </div>
- 
-      <div class="preview-feed-title">Follow Us on Instagram</div>
-  
-      <div class="preview-feed-desc">Follow us so you'll never miss an update</div>
-   
+    <div class="preview-feed-account-detail">
+      <div class="preview-feed-account-detail-header">
+        <div class="preview-feed-account-detail-header-name">Tungvan2024</div>
+        <div class="preview-feed-account-detail-header-button-follow" style="color:#FFFF"><span>Follow</span></div>
+      </div>
+      <div class="preview-feed-account-detail-number">
+        <div class="preview-feed-account-detail-number-post"><b>12</b> Post</div>
+        <div class="preview-feed-account-detail-number-follower"><b>0</b> Follower</div>
+        <div class="preview-feed-account-detail-number-following"><b>0</b> Fllowing</div>
+      </div>
+      <div class="preview-feed-account-detail-account-name">Tungvan2024</div>
+    </div>
+  </div>
+
+  <div class="preview-feed-title">Follow Us on Instagram</div>
+
+  <div class="preview-feed-desc">Follow us so you'll never miss an update</div>
 
   <div id="instagram-images" class="instagram-images">
     <button onclick="plusSlides(-1)" style="display:none" id="prev" class="prev">❮</button>
@@ -1571,18 +1786,19 @@
 
 <!-- Logic JS -->
 <script>
-  window.onload = async function () {
+  
+  {% comment %} window.onload = async function () {
     
     const galleryJson = {{ gallery | json }}
   
     
     console.log("🚀 ~ meta_data:", meta_data)
-    if (!accessToken) {
+    if (!accessToken_0) {
       console.error('Access token is required.');
       return;
     }
 
-    const url = `https://graph.instagram.com/me?fields=profile_picture_url,username,media{caption,media_type,media_url,comments_count,like_count,timestamp}&access_token=${accessToken}`;
+    const url = `https://graph.instagram.com/me?fields=profile_picture_url,username,media{caption,media_type,media_url,comments_count,like_count,timestamp}&access_token=${accessToken_0}`;
 
     try {
       const response = await fetch(url);
@@ -1818,5 +2034,5 @@
     } catch (error) {
       console.error('Error:', error.message);
     }
-  };
+  }; {% endcomment %}
 </script>

@@ -18,20 +18,26 @@ import {
     Select,
     Checkbox,
     Icon,
-    Spinner
+    Spinner,
+    Modal as ModalPolaris
 } from '@shopify/polaris';
 import { PlusIcon, MenuVerticalIcon, DatabaseIcon, ImageIcon, DeleteIcon } from '@shopify/polaris-icons';
 import { useState, useCallback, useEffect } from 'react';
 import { Modal, TitleBar, useAppBridge, SaveBar } from '@shopify/app-bridge-react';
 import { useNavigate, Outlet, useParams, useLoaderData, useFetcher, Form, useActionData } from "@remix-run/react";
 import styles from '../style/style-widget.css?url'
+import styless from '../style/style.css?url'
 import db from "../db.server";
 import { authenticate } from "../shopify.server";
 import { json } from "@remix-run/node";
 import axios from 'axios';
-export const links = () => [{ rel: "stylesheet", href: styles }];
+export const links = () => [
+    { rel: "stylesheet", href: styles },
+    { rel: "stylesheet", href: styless }
+];
 
 export async function loader({ request, params }) {
+
     const { session } = await authenticate.admin(request);
     const account = await db.account.findMany({
         where: { sessionId: session?.id },
@@ -45,36 +51,11 @@ export async function loader({ request, params }) {
             const gallery = await db.gallery.findMany({
                 where: { sourceId: source.id },
             });
-            return { ...source, accountName: account.accountName, gallerys: gallery.length };
+            return { ...source, accountName: account?.accountName, gallerys: gallery.length };
         })
     );
 
-    const widget = await db.account.findFirst({
-        where: { sessionId: session.id },
-    })
-    const accessToken = widget?.accessToken
-    let posts = null;
-
-    if (accessToken) {
-        try {
-            const response = await axios.get('https://graph.instagram.com/me', {
-                params: {
-                    fields: 'profile_picture_url,username,media{caption,media_type,media_url,comments_count,like_count,timestamp}',
-                    access_token: accessToken
-                }
-            });
-
-            posts = response?.data;
-        } catch (error) {
-            console.error('Lỗi khi lấy bài viết:', error.response?.data || error.message);
-            throw error;
-        }
-    }
-    const url = new URL(request.url);
-    const searchParams = new URLSearchParams(url.search);
-    const sourcename = searchParams.get('sourcename');
-    const accountname = searchParams.get('accountname');
-    return json({ account, source: sourcesAndAccountName, posts, sourcename });
+    return json({ account, source: sourcesAndAccountName, });
 }
 
 export async function action({ request }) {
@@ -98,7 +79,7 @@ export async function action({ request }) {
             try {
                 const response = await axios.get('https://graph.instagram.com/me', {
                     params: {
-                        fields: 'media{caption,media_type,media_url,comments_count,like_count,timestamp}',
+                        fields: 'profile_picture_url,username,media{caption,media_type,media_url,comments_count,like_count,timestamp}',
                         access_token: accessToken
                     }
                 });
@@ -110,78 +91,92 @@ export async function action({ request }) {
                 throw error;
             }
         }
-
-        if (action === "delete") {
-            const sourceToDeletes = await db.source.findMany({
-                where: {
-                    id: {
-                        in: idToDelete
-                    }
-                }
-            })
-            const gallerys = await db.gallery.findMany({
-                where: {
-                    sourceId: {
-                        in: idToDelete
-                    }
-                }
-            })
-            if (gallerys.length > 0) {
-                const sourcesWithGallerys = await Promise.all(sourceToDeletes.map(async (source) => {
-                    const galleries = await Promise.all(gallerys.filter(gallery => gallery.sourceId === source.id).map(async (gallery) => {
-                        const widgetSettings = await db.widgetSetting.findMany({
-                            where: { galleryId: gallery.id },
-                        });
-                        return { ...gallery, widgetSettings };
-                    }));
-                    return { ...source, galleries };
-                }));
-
-                return json({
-                    success: false,
-                    message: `Delete source failed. Please delete all gallerys before delete source.`,
-                    sourcesWithGallerys: sourcesWithGallerys,
-                });
-            } else {
-                await db.source.deleteMany({
+        switch (action) {
+            case "delete": {
+                const sourceToDeletes = await db.source.findMany({
                     where: {
                         id: {
                             in: idToDelete
                         }
                     }
                 });
+                const gallerys = await db.gallery.findMany({
+                    where: {
+                        sourceId: {
+                            in: idToDelete
+                        }
+                    }
+                });
+                if (gallerys.length > 0) {
+                    const sourcesWithGallerys = await Promise.all(sourceToDeletes.map(async (source) => {
+                        const galleries = await Promise.all(gallerys.filter(gallery => gallery.sourceId === source.id).map(async (gallery) => {
+                            const widgetSettings = await db.widgetSetting.findMany({
+                                where: { galleryId: gallery.id },
+                            });
+                            return { ...gallery, widgetSettings };
+                        }));
+                        return { ...source, galleries };
+                    }));
+
+                    return json({
+                        success: false,
+                        message: `Delete source failed. Please delete all gallerys before delete source.`,
+                        sourcesWithGallerys: sourcesWithGallerys,
+                    });
+                } else {
+                    await db.source.deleteMany({
+                        where: {
+                            id: {
+                                in: idToDelete
+                            }
+                        }
+                    });
+                    return json({
+                        success: true,
+                        message: `Delete source successfully.`,
+                    });
+                }
+            }
+            case "create": {
+                const existingSource = await db.source.findFirst({
+                    where: {
+                        sourceName: sourceName,
+                        accountId: account.id,
+                    }
+                });
+
+                if (existingSource) {
+                    return json({
+                        success: false,
+                        message: `Source with the same name already exists.`,
+                    });
+                }
+
+                await db.source.create({
+                    data: {
+                        items: posts?.media.data.length,
+                        sourceName: sourceName,
+                        accountId: account.id,
+                    }
+                });
+
                 return json({
                     success: true,
-                    message: `Delete source successfully.`,
+                    message: `Create source successfully.`,
                 });
             }
-        } else if (action === "create") {
-            const existingSource = await db.source.findFirst({
-                where: {
-                    sourceName: sourceName,
-                    accountId: account.id,
-                }
-            });
+            case "select_account": {
 
-            if (existingSource) {
+
                 return json({
-                    success: false,
-                    message: `Source with the same name already exists.`,
+                    success: true,
+                    message: `Selected account successfully.`,
+                    posts: posts
                 });
             }
 
-            await db.source.create({
-                data: {
-                    items: posts?.media.data.length,
-                    sourceName: sourceName,
-                    accountId: account.id,
-                }
-            });
-
-            return json({
-                success: true,
-                message: `Create source successfully.`,
-            });
+            default:
+                break;
         }
     } catch (error) {
         console.error("Cannot create source to database!", error);
@@ -190,10 +185,10 @@ export async function action({ request }) {
 }
 
 export default function PageExample() {
-    const { account, source, posts, sourcename } = useLoaderData();
+    const { account, source } = useLoaderData();
 
     const [createView, setCreateView] = useState(false);
-    const [textFieldValue, setTextFieldValue] = useState(sourcename || '');
+    const [textFieldValue, setTextFieldValue] = useState('');
     const handleTextFieldChange = useCallback((value) => setTextFieldValue(value), []);
     const [checked, setChecked] = useState(false);
     const handleChangeCheck = useCallback((newChecked) => setChecked(newChecked), []);
@@ -204,7 +199,16 @@ export default function PageExample() {
     const navigate = useNavigate();
     const params = useParams();
     const fetcher = useFetcher();
-    const [sourceToDeletes, setSourceToDeletes] = useState(fetcher.data?.sourcesWithGallerys);
+    const [sourceToDeletes, setSourceToDeletes] = useState(fetcher.data?.sourcesWithGallerys || []);
+    const [posts, setPosts] = useState(fetcher.data?.posts || [])
+
+    const [currentPost, setCurrentPost] = useState(null)
+    const [active, setActive] = useState(false);
+
+    const handleChangePost = useCallback((post) => {
+        setActive(!active)
+        setCurrentPost(post)
+    }, [active])
 
     useEffect(() => {
         shopify.loading(false);
@@ -226,6 +230,9 @@ export default function PageExample() {
                     shopify.modal.hide('modal-confirm-delete');
                     shopify.modal.show('modal-confirm-delete-sub');
                     break;
+                case "Selected account successfully.":
+                    setPosts(fetcher.data?.posts)
+                    break;
                 default:
                     break;
             }
@@ -242,6 +249,19 @@ export default function PageExample() {
     useEffect(() => {
         shopify.loading(false);
     }, [shopify]);
+
+    const handleSelectAccount = async () => {
+        try {
+            const formData = new FormData();
+            formData.append("sourceName", sourceNameValue);
+            formData.append("_action", "select_account");
+            formData.append("accountName", selectedAccounts[0]);
+            await fetcher.submit(formData, { method: "post" });
+            shopify.loading(true);
+        } catch (error) {
+            console.error("Error deleting account:", error);
+        }
+    }
 
     const handleCreateSource = async () => {
         try {
@@ -320,7 +340,7 @@ export default function PageExample() {
     );
 
     const [showErrorAccount, setShowErrorAccount] = useState(false);
-    const [selectedAccounts, setSelectedAccounts] = useState([account[0].accountName]);
+    const [selectedAccounts, setSelectedAccounts] = useState([account[0]?.accountName]);
     const handleChange = useCallback((value) => {
         setSelectedAccounts(value);
         if (showErrorAccount) {
@@ -433,7 +453,7 @@ export default function PageExample() {
         <div>
             {createView ? (
                 <Page
-                    backAction={{ content: 'Products', url: '/app/source', onAction: () => { setCreateView(false); } }}
+                    backAction={{ content: 'Products', url: '/app/source', onAction: () => { setCreateView(false); shopify.saveBar.hide("my-save-bar") } }}
                     title="Add new media source"
                 >
                     <div>
@@ -508,19 +528,13 @@ export default function PageExample() {
                                     </Text>
                                 </Box>
                                 <Divider borderColor="border" />
-                                <Box padding="400">
-                                    <Checkbox
-                                        label="Select all"
-                                        checked={checked}
-                                        onChange={handleChangeCheck}
-                                    />
-                                </Box>
+
                                 <Scrollable style={{ height: 'calc(-220px + 100vh)' }}>
                                     <div className="list-media-source">
                                         {posts?.media?.data.map((post, index) => (
                                             <div
                                                 key={index}
-                                                onClick={() => handleChange(post)}
+                                                onClick={() => handleChangePost(post)}
                                                 style={{ backgroundImage: `url(${post.media_url})` }}
                                                 className="list-media-source-item"
                                             >
@@ -618,11 +632,11 @@ export default function PageExample() {
                                                         <InlineStack align='space-between'>
                                                             <InlineStack gap='200' blockAlign='center'>
                                                                 <div className='item-select-profile-name'>I</div>
-                                                                <div className='item-select-profile-username'>{acc.accountName}</div>
+                                                                <div className='item-select-profile-username'>{acc?.accountName}</div>
                                                             </InlineStack>
                                                             <ChoiceList
                                                                 choices={[
-                                                                    { label: '', value: acc.accountName },
+                                                                    { label: '', value: acc?.accountName },
                                                                 ]}
                                                                 selected={selectedAccounts}
                                                                 onChange={(value) => handleChange(value)}
@@ -655,6 +669,7 @@ export default function PageExample() {
                                 setTextFieldValue(sourceNameValue);
                                 navigate(`/app/source?sourcename=${sourceNameValue}&accountname=${selectedAccounts[0]}`);
                                 setCreateView(true);
+                                handleSelectAccount()
                                 shopify.modal.hide('my-modal');
                             } else {
                                 console.log("Form validation failed!");
@@ -783,6 +798,66 @@ export default function PageExample() {
                     Discard
                 </button>
             </SaveBar>
+
+            {currentPost &&
+                <ModalPolaris
+                    size="large"
+                    open={active}
+                    onClose={handleChangePost}
+                >
+                    <div className='modal'>
+                        <div className='modal-left'>
+                            <div style={{ backgroundImage: `url(${currentPost.media_url})` }} className="modal-left-media">
+
+                            </div>
+                        </div>
+                        <div className="modal-right">
+                            <div className="modal-right-infor">
+                                <BlockStack >
+                                    <div className="modal-right-infor-header">
+                                        <InlineStack gap="400" wrap={false} blockAlign="center">
+                                            <div style={{ backgroundImage: `url(${posts?.profile_picture_url})` }} className="modal-right-infor-header-avatar">
+                                            </div>
+                                            <div className="modal-right-infor-header-name">{posts?.username}</div>
+                                        </InlineStack>
+                                    </div>
+                                    <div className="modal-right-infor-content">
+                                        <div className="modal-right-infor-content-total-reaction">
+                                            <Box padding="400" >
+                                                <InlineStack align='center' gap="600" wrap={false} blockAlign="center">
+                                                    <BlockStack inlineAlign='center'>
+                                                        <Text fontWeight="medium" as="p">
+                                                            {currentPost.like_count}
+                                                        </Text>
+                                                        <Text tone='subdued' as="p">
+                                                            Like
+                                                        </Text>
+                                                    </BlockStack>
+                                                    <BlockStack inlineAlign='center'>
+                                                        <Text fontWeight="medium" as="p">
+                                                            {currentPost.comments_count}
+                                                        </Text>
+                                                        <Text tone='subdued' as="p">
+                                                            Comment
+                                                        </Text>
+                                                    </BlockStack>
+                                                </InlineStack>
+                                            </Box>
+                                        </div>
+                                        <Scrollable style={{ height: "calc(-260px + 100vh)" }} >
+                                            <div>{currentPost.caption}</div>
+                                        </Scrollable>
+                                    </div>
+                                    <div className="modal-right-infor-footer">
+
+                                    </div>
+                                </BlockStack>
+                            </div>
+                        </div>
+                    </div>
+                </ModalPolaris>
+            }
+
         </div>
     );
 }

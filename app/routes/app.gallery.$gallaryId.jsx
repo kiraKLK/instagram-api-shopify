@@ -118,7 +118,7 @@ export const action = async ({ request, params }) => {
         const metafields = await admin.rest.resources.Metafield.all({
             session,
             namespace: "custom",
-            key: "account_data"
+            key: "setting_data"
         });
 
         let currentSettings = { accounts: [] };
@@ -161,7 +161,7 @@ export const action = async ({ request, params }) => {
 
                 const newMetafield = new admin.rest.resources.Metafield({ session });
                 newMetafield.namespace = "custom";
-                newMetafield.key = "account_data";
+                newMetafield.key = "setting_data";
                 newMetafield.value = JSON.stringify(currentSettings);
                 newMetafield.type = "json";
 

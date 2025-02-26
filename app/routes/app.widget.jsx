@@ -1138,7 +1138,7 @@ export default function TabsWithTablesExample() {
                                                         <span style={{ color: "#FFFFFF" }}>Follow</span>
                                                     </div>
                                                 </div>
-                                                <div class="preview-instagram-popup-detail-content">
+                                                <div className="preview-instagram-popup-detail-content">
                                                     Go behind the scenes and discover how Smarties became the first global confectionery brand to switch to recyclable paper packaging.
                                                     A move that goes a long way to achieving our goal of 100% recyclable or reusable packaging by 2025.Visit the link in our bio for the full story.
                                                 </div>
@@ -1230,7 +1230,7 @@ export default function TabsWithTablesExample() {
                 );
             case 3:
                 return (
-                    <div class="grid-container">
+                    <div className="grid-container">
                         {posts.media.data.map((image, index) => (
                             <img className={`item${index}`} key={index} src={image.media_url} alt={image.alt} style={{ width: "100%" }} />
                         ))}
@@ -1271,7 +1271,7 @@ export default function TabsWithTablesExample() {
                 );
             case 5:
                 return (
-                    <div class="grid-container-grid">
+                    <div className="grid-container-grid">
                         {posts.media.data.map((image, index) => (
                             <img className={`item-grid${index}`} key={index} src={image.media_url} alt={image.alt} style={{ width: "100%" }} />
                         ))}
@@ -1279,7 +1279,7 @@ export default function TabsWithTablesExample() {
                 );
             case 6:
                 return (
-                    <div class="grid-container-highlight-center">
+                    <div className="grid-container-highlight-center">
                         {posts.media.data.map((image, index) => (
                             <img className={`item-center${index}`} key={index} src={image.media_url} alt={image.alt} style={{ width: "100%" }} />
                         ))}

@@ -122,9 +122,15 @@ export const action = async ({ request, params }) => {
                 // Kiểm tra nếu tồn tại Id thì update nếu không thì tạo mới
                 const existingSetting = await db.widgetSetting.findFirst({ where: { id: widgetId } });
                 if (existingSetting) {
+                    const galleryId = await db.gallery.findFirst({
+                        where: {
+                            galleyName: gallary
+                        }
+                    })
                     const updatedSetting = {
                         widgetName: widgetName,
-                        gallary: gallary,
+                        gallery: gallary,
+                        galleryId: galleryId.id,
                         widgetTemplate: widgetTemplate,
                         numberOfColumns: numberOfColumns,
                         numberOfRows: numberOfRows,
@@ -159,7 +165,20 @@ export const action = async ({ request, params }) => {
 
                     await db.widgetSetting.update({
                         where: { id: widgetId },
-                        data: updatedSetting
+                        data: {
+                            widgetName: widgetName,
+                            gallary: gallary,
+                            galleryId: galleryId.id,
+                            widgetTemplate: widgetTemplate,
+                            numberOfColumns: numberOfColumns,
+                            numberOfRows: numberOfRows,
+                            paddingImg: paddingImg,
+                            borderImg: borderImg,
+                            widgetLayout: widgetLayout,
+                            hotSpotHoverColor: hotSpotHoverColor,
+                            hotSpotColor: hotSpotColor,
+                            heading: JSON.stringify(heading),
+                        }
                     });
 
                     return json({
@@ -278,6 +297,13 @@ export const action = async ({ request, params }) => {
                         }
                     }
                 }
+                // currentSettings.accounts.forEach(acc => {
+                //     acc.sources.forEach(src => {
+                //         src.galleries.forEach(gal => {
+                //             gal.widgetSettings = [];
+                //         });
+                //     });
+                // });
 
                 const newMetafield = new admin.rest.resources.Metafield({ session });
                 newMetafield.namespace = "custom";
@@ -514,7 +540,7 @@ export const action = async ({ request, params }) => {
 export default function TabsWithTablesExample() {
     //Load data từ loader
     const loaderData = useLoaderData()
-   // const posts = loaderData?.posts || [] // Biến lưu thông tin bài viết
+    // const posts = loaderData?.posts || [] // Biến lưu thông tin bài viết
     const widget = loaderData?.widget || [] // Biến lưu thông tin mảng setting
     const gallerys = loaderData?.gallerys || []
     const [searchParams] = useSearchParams()
@@ -540,7 +566,7 @@ export default function TabsWithTablesExample() {
                 duration: 1500,
             })
             // Ẩn save bar
-           
+
             shopify.loading(false) // tắt loading
             setIsLoaded(true)
             setIsSaving(false)

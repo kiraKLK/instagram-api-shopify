@@ -1,0 +1,32 @@
+# Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
+
+client_id = "de4349f3cb6d7c794a2536266a976f22"
+application_url = "https://fb39-2405-4802-599-ffd0-dd3-15a8-5099-2534.ngrok-free.app"
+embedded = true
+name = "test-theme"
+handle = "test-theme-28"
+
+[build]
+automatically_update_urls_on_dev = true
+dev_store_url = "test-qr-app.myshopify.com"
+
+[webhooks]
+api_version = "2024-10"
+
+  [[webhooks.subscriptions]]
+  topics = [ "app/uninstalled" ]
+  uri = "/webhooks/app/uninstalled"
+
+[access_scopes]
+# Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
+scopes = "write_products"
+
+[auth]
+redirect_urls = [
+  "https://fb39-2405-4802-599-ffd0-dd3-15a8-5099-2534.ngrok-free.app/auth/callback",
+  "https://fb39-2405-4802-599-ffd0-dd3-15a8-5099-2534.ngrok-free.app/auth/shopify/callback",
+  "https://fb39-2405-4802-599-ffd0-dd3-15a8-5099-2534.ngrok-free.app/api/auth/callback"
+]
+
+[pos]
+embedded = false

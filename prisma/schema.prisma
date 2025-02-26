@@ -1,0 +1,50 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:dev.sqlite"
+}
+
+model Session {
+  id            String    @id
+  shop          String
+  state         String
+  isOnline      Boolean   @default(false)
+  scope         String?
+  expires       DateTime?
+  accessToken   String
+  userId        BigInt?
+  firstName     String?
+  lastName      String?
+  email         String?
+  accountOwner  Boolean   @default(false)
+  locale        String?
+  collaborator  Boolean?
+  emailVerified Boolean?
+  accounts      Account[] @relation("SessionAccounts")
+}
+
+model Account {
+  id            Int             @id @default(autoincrement())
+  accessToken   String
+  accountName   String
+  sessionId     String
+  session       Session         @relation("SessionAccounts", fields: [sessionId], references: [id])
+  widgetSetting WidgetSetting[] @relation("Setting")
+}
+
+model WidgetSetting {
+  id              Int     @id @default(autoincrement())
+  widgetName      String
+  gallary         String
+  widgetTemplate  String
+  numberOfColumns Int
+  numberOfRows    Int
+  paddingImg      Int
+  borderImg       Int
+  accountId       Int
+  widgetLayout    Int
+  account         Account @relation("Setting", fields: [accountId], references: [id])
+}
